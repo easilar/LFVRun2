@@ -468,6 +468,7 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
             _jetCorrector->setJetA(jetAreas[i]);
             _jetCorrector->setRho(rho);
             float corrfactor = _jetCorrector->getCorrection();
+            if (abs(corrfactor) > 100.) corrfactor = 1.0;
             corrfactors.emplace_back(tocorrect[i] * rawfrac * corrfactor);
         }
         return corrfactors;
@@ -488,6 +489,7 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
                 corrector->setJetPt(jetpts[i]);
                 corrector->setJetEta(jetetas[i]);
                 float unc = corrector->getUncertainty(true);
+                if (abs(unc) > 100.) unc = 0.;
                 uncSources.emplace_back(1.0f + unc);
                 uncSources.emplace_back(1.0f - unc);
             }
@@ -497,7 +499,9 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
         return uncertainties;
     };
 
-    auto metCorr = [=](float met, float metphi, floats jetptsbefore, floats jetptsafter, floats jetphis, int npv, int runnb)->float {
+    auto metCorr = [=](float met, float metphi, floats jetptsbefore, floats jetptsafter, floats jetphis, int npv, unsigned int _runnb)->float {
+
+        int runnb = int(_runnb);
 
         auto metx = met * cos(metphi);
         auto mety = met * sin(metphi);
@@ -580,7 +584,9 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
         return corrfactors;
     };
 
-    auto metPhiCorr = [=](float met, float metphi, floats jetptsbefore, floats jetptsafter, floats jetphis, int npv, int runnb)->float {
+    auto metPhiCorr = [=](float met, float metphi, floats jetptsbefore, floats jetptsafter, floats jetphis, int npv, unsigned int _runnb)->float {
+
+        int runnb = int(_runnb);
 
         auto metx = met * cos(metphi);
         auto mety = met * sin(metphi);
@@ -1224,6 +1230,8 @@ void NanoAODAnalyzerrdframe::topPtReweight() {
         else {
             float pt1 = toppt[0];
             float pt2 = toppt[1];
+            if (pt1 > 2000) pt1 = 1999;
+            if (pt2 > 2000) pt2 = 1999;
             int xbin1 = (std::upper_bound(xbins.begin(), xbins.end(), pt1)-1) - xbins.begin();
             int xbin2 = (std::upper_bound(xbins.begin(), xbins.end(), pt2)-1) - xbins.begin();
             out = std::sqrt( sfs.at(xbin1) * sfs.at(xbin2));

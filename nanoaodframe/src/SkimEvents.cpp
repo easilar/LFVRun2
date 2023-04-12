@@ -39,10 +39,10 @@ void SkimEvents::defineCuts()
 void SkimEvents::defineMoreVars()
 {
         if(_year.find("16") != std::string::npos){
-            addVar({"Flag_filter","Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_HBHENoiseFilter && Flag_HBHENoiseIsoFilter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_eeBadScFilter",""});
+            addVar({"Flag_filter","Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_HBHENoiseFilter && Flag_HBHENoiseIsoFilter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_eeBadScFilter && Flag_hfNoisyHitsFilter",""});
         }else{
             // For 17, 18 UL
-            addVar({"Flag_filter","Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_HBHENoiseFilter && Flag_HBHENoiseIsoFilter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_eeBadScFilter && Flag_ecalBadCalibFilter",""});
+            addVar({"Flag_filter","Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_HBHENoiseFilter && Flag_HBHENoiseIsoFilter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter && Flag_ecalBadCalibFilter",""});
         }
         // define variables that you want to store
         addVartoStore("run");
@@ -122,6 +122,7 @@ void SkimEvents::defineMoreVars()
         addVartoStore("nvetomuons");
         addVartoStore("muon4vecs");
         addVartoStore("fixedGridRhoFastjetAll");
+        addVartoStore("L1PreFiringWeight_.*");
 }
 
 void SkimEvents::bookHists()

@@ -82,7 +82,8 @@ def AddSig(fname, name, color, xsection):
 AddBkg("hist_TTToSemiLeptonic.root", "TTLJ", '#990000', 365.34)
 AddBkg("hist_TTTo2L2Nu.root", "TTLL", '#330000', 88.29)
 AddBkg("hist_TTToHadronic.root", "TTHad", '#cc0000', 377.96)
-##ttH
+AddBkg("hist_ttHTobb.root", "ttV/H", '#ff66ff', 0.2934)
+AddBkg("hist_ttHToNonbb.root", "ttV/H", '#ff66ff', 0.2151)
 AddBkg("hist_TTWJetsToLNu.root", "ttV/H", '#ff66ff', 0.2043)
 AddBkg("hist_TTWJetsToQQ.root", "ttV/H", '#ff66ff', 0.4062)
 AddBkg("hist_TTZToLLNuNu.root", "ttV/H", '#ff66ff', 0.2529)
@@ -150,14 +151,12 @@ elif era == "2016post":
 
 elif era == "2017":
   SetData("hist_SingleMuon2017.root","data", 41480)
-  AddBkg("hist_ttHJetTobb.root", "ttV/H", '#ff66ff', 0.2934)
-  AddBkg("hist_ttHJetToNonbb.root", "ttV/H", '#ff66ff', 0.2151)
   AddSig("hist_ST_LFV_TCMuTau_Scalar.root", "STLFVc_s", '#99CC66', 0.00740)
-  #AddSig("hist_ST_LFV_TCMuTau_Vector.root", "STLFVc_v", '#99CC66', 0.0368)
+  AddSig("hist_ST_LFV_TCMuTau_Vector.root", "STLFVc_v", '#99CC66', 0.0368)
   AddSig("hist_ST_LFV_TCMuTau_Tensor.root", "STLFVc_t", '#99CC66', 0.1784)
-  #AddSig("hist_ST_LFV_TUMuTau_Scalar.root", "STLFVu_s", '#6B8551', 0.0838)
-  #AddSig("hist_ST_LFV_TUMuTau_Vector.root", "STLFVu_v", '#6B8551', 0.393)
-  #AddSig("hist_ST_LFV_TUMuTau_Tensor.root", "STLFVu_t", '#6B8551', 1.796)
+  AddSig("hist_ST_LFV_TUMuTau_Scalar.root", "STLFVu_s", '#6B8551', 0.0838)
+  AddSig("hist_ST_LFV_TUMuTau_Vector.root", "STLFVu_v", '#6B8551', 0.393)
+  AddSig("hist_ST_LFV_TUMuTau_Tensor.root", "STLFVu_t", '#6B8551', 1.796)
   AddSig("hist_TT_LFV_TCMuTau_Scalar.root", "TTLFVc_s", '#908DCC', 0.00269)
   AddSig("hist_TT_LFV_TCMuTau_Vector.root", "TTLFVc_v", '#908DCC', 0.0215)
   AddSig("hist_TT_LFV_TCMuTau_Tensor.root", "TTLFVc_t", '#908DCC', 0.1290)
@@ -168,17 +167,15 @@ elif era == "2017":
 
 elif era == "2018":
   SetData("hist_SingleMuon2018.root", "data", 59832)
-  AddBkg("hist_ttHJetTobb.root", "ttV/H", '#ff66ff', 0.2934)
-  AddBkg("hist_ttHJetToNonbb.root", "ttV/H", '#ff66ff', 0.2151)
   AddSig("hist_ST_LFV_TCMuTau_Scalar.root", "STLFVc_s", '#99CC66', 0.00740)
   AddSig("hist_ST_LFV_TCMuTau_Vector.root", "STLFVc_v", '#99CC66', 0.0368)
-  #AddSig("hist_ST_LFV_TCMuTau_Tensor.root", "STLFVc_t", '#99CC66', 0.1784)
+  AddSig("hist_ST_LFV_TCMuTau_Tensor.root", "STLFVc_t", '#99CC66', 0.1784)
   AddSig("hist_ST_LFV_TUMuTau_Scalar.root", "STLFVu_s", '#6B8551', 0.0838)
   AddSig("hist_ST_LFV_TUMuTau_Vector.root", "STLFVu_v", '#6B8551', 0.393)
-  #AddSig("hist_ST_LFV_TUMuTau_Tensor.root", "STLFVu_t", '#6B8551', 1.796)
+  AddSig("hist_ST_LFV_TUMuTau_Tensor.root", "STLFVu_t", '#6B8551', 1.796)
   AddSig("hist_TT_LFV_TCMuTau_Scalar.root", "TTLFVc_s", '#908DCC', 0.00269)
-  #AddSig("hist_TT_LFV_TCMuTau_Vector.root", "TTLFVc_v", '#908DCC', 0.0215)
-  #AddSig("hist_TT_LFV_TCMuTau_Tensor.root", "TTLFVc_t", '#908DCC', 0.1290)
+  AddSig("hist_TT_LFV_TCMuTau_Vector.root", "TTLFVc_v", '#908DCC', 0.0215)
+  AddSig("hist_TT_LFV_TCMuTau_Tensor.root", "TTLFVc_t", '#908DCC', 0.1290)
   AddSig("hist_TT_LFV_TUMuTau_Scalar.root", "TTLFVu_s", '#4F4D80', 0.00269)
   AddSig("hist_TT_LFV_TUMuTau_Vector.root", "TTLFVu_v", '#4F4D80', 0.0215)
   AddSig("hist_TT_LFV_TUMuTau_Tensor.root", "TTLFVu_t", '#4F4D80', 0.1290)
@@ -197,9 +194,9 @@ else:
 
 fNevt = open("Nevt_ratio.txt",'w')
 for fname in bkgsamples.keys():
-  fNevt.write(fname + " : generated events : " + str(bkgsamples[fname]["total"]) + "\n")
+  fNevt.write(fname + " : generated events : " + str(int(bkgsamples[fname]["total"])) + "\n")
 for fname in sigsamples.keys():
-  fNevt.write(fname + " : generated events : " + str(sigsamples[fname]["total"]) + "\n")
+  fNevt.write(fname + " : generated events : " + str(int (sigsamples[fname]["total"])) + "\n")
 
 count = 0
 for i in range(0, N_hist):

@@ -18,7 +18,7 @@ os.makedirs(tgdir.replace('DATAMC', 'data'), exist_ok=True)
 os.makedirs(tgdir.replace('DATAMC', 'mc'), exist_ok=True)
 os.makedirs(log, exist_ok=True)
 
-for fn in os.listdir("data/dataset/v8UL_" + year):
+for fn in os.listdir("data/dataset/v9UL_" + year):
     if 'json' in fn: continue
     fname = fn.replace('dataset_', '').replace('.txt', '')
     test_list = options.dataset
@@ -30,7 +30,7 @@ for fn in os.listdir("data/dataset/v8UL_" + year):
         elif options.dataOrMC == 'mc':
             if '201' in fname: continue
 
-    with open(os.path.join("data/dataset/v8UL_" + year, fn), 'r') as f:
+    with open(os.path.join("data/dataset/v9UL_" + year, fn), 'r') as f:
         for line in f.readlines():
             if line.startswith('#'): continue
 
