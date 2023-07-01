@@ -8,9 +8,11 @@
   for-yields: true
   yields-table-order: 0
   yields-title: 'DNN'
-  ratio-y-axis-auto-range: true
-  blinded-range: [0.700001,1.0]
+  ratio-y-axis-range: [0.01, 2]
+  ratio-y-axis-auto-range: false
   signal-normalize-data: false
+  blinded-range: [2.501,100]
+# log-x: true
 #  rebin: 4
 #  labels:
 #    - {text: 'b2j3', position: [0.781, 0.806], size: 18}

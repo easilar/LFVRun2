@@ -105,4 +105,6 @@ ints dRmatching_binary( int origin_i,float maxdR,  floats origin_pt, floats orig
 float SumMass( FourVectorVec object1, FourVectorVec object2, FourVectorVec object3);
 
 FourVector select_leadingvec( FourVectorVec &v );
+
+floats addMuonUnc( floats &input );
 #endif /* UTILITY_H_ */

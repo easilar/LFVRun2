@@ -73,9 +73,6 @@
 'h_met_pt_notausf_S1':
   save-extensions: ['pdf', 'png']
 
-'h_met_pt_S2':
-  save-extensions: ['pdf', 'png']
-
 'h_met_pt_S3':
   save-extensions: ['pdf', 'png']
 
@@ -106,19 +103,19 @@
 
 #Muon pt
 'h_muon1_pt_notausf_S1':
-  save-extensions: ['pdf', 'png']
+  save-extensions: ['pdf','png']
 
 'h_muon1_pt_S2':
-  save-extensions: ['pdf', 'png']
+  save-extensions: ['pdf','png']
 
 'h_muon1_pt_S3':
-  save-extensions: ['pdf', 'png']
+  save-extensions: ['pdf','png']
 
 'h_muon1_pt_S4':
-  save-extensions: ['pdf', 'png']
+  save-extensions: ['pdf','png']
 
 'h_muon1_pt_S5':
-  save-extensions: ['pdf', 'png']
+  save-extensions: ['pdf','png']
   blinded-range: [250, 599]
 
 

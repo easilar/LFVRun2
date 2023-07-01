@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <typeinfo>
 #include <random>
+#include <chrono>
+#include <ctime>
 
 #include "TCanvas.h"
 #include "Math/GenVector/VectorUtil.h"
@@ -25,6 +27,12 @@ using namespace std;
 
 NanoAODAnalyzerrdframe::NanoAODAnalyzerrdframe(TTree *atree, std::string outfilename, std::string year, std::string syst, std::string jsonfname, std::string globaltag, int nthreads)
 :_rd(*atree), _isData(false), _jsonOK(false), _outfilename(outfilename), _year(year), _syst(syst), _jsonfname(jsonfname), _globaltag(globaltag), _inrootfile(0), _outrootfile(0), _rlm(_rd), _rnt(&_rlm), currentnode(0), PDFWeights(103, 0.0) {
+
+    // record time
+    auto start = std::chrono::system_clock::now();
+    std::time_t start_time = std::chrono::system_clock::to_time_t(start);
+
+    std::cout << "Start job on: " << std::ctime(&start_time) << std::endl;
 
     // Skim switch
     if (_isSkim == true) {
@@ -155,7 +163,7 @@ void NanoAODAnalyzerrdframe::setupAnalysis() {
             WeightCalculatorFromHistogram* _puweightcalc = new WeightCalculatorFromHistogram(_hpumc, _hpudata);
             WeightCalculatorFromHistogram* _puweightcalc_plus = new WeightCalculatorFromHistogram(_hpumc, _hpudata_plus);
             WeightCalculatorFromHistogram* _puweightcalc_minus = new WeightCalculatorFromHistogram(_hpumc, _hpudata_minus); 
-	    //Check Normalisation issue for genWeight 
+            //Check Normalisation issue for genWeight
             _rlm = _rlm.Redefine("unitGenWeight","genWeight != 0 ? genWeight/abs(genWeight) : 0")
                        .Define("puWeight", [this, _puweightcalc, _puweightcalc_plus, _puweightcalc_minus](float x) ->floats
                               {return {_puweightcalc->getWeight(x), _puweightcalc_plus->getWeight(x), _puweightcalc_minus->getWeight(x)};}, {"Pileup_nTrueInt"});
@@ -442,6 +450,7 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
             cout<<"Applying JEC Uncertainty"<<endl;
             for (std::string src : jes_var) {
                 if (src.find("up") != std::string::npos) {
+                    if (src.find("HEM") != std::string::npos) continue;
                     auto uncsource = src.substr(3, src.size()-2-3);
                     cout << "JEC Uncertainty Source : " + uncsource << endl;
                     string dbfilenameunc = basedirectory + "RegroupedV2_" + _globaltag + "_MC_UncertaintySources_AK4PFchs.txt";
@@ -475,7 +484,7 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
     };
 
     // structure: jes[jetIdx][varIdx]
-    auto jesUnc = [this, regroupedUnc](floats jetpts, floats jetetas, floats jetAreas, floats jetrawf, float rho)->floatsVec {
+    auto jesUnc = [this, regroupedUnc](floats jetpts, floats jetetas, floats jetphis, floats jetAreas, floats jetrawf, float rho)->floatsVec {
 
         floats uncSources;
         uncSources.reserve(2 * regroupedUnc.size());
@@ -492,6 +501,15 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
                 if (abs(unc) > 100.) unc = 0.;
                 uncSources.emplace_back(1.0f + unc);
                 uncSources.emplace_back(1.0f - unc);
+            }
+            // HEM - consider 2018 only
+            if (_year == "2018") {
+                if (jetphis[i] > -1.57 && jetphis[i] < -0.87 && jetetas[i] > -2.5 && jetetas[i] < -1.3) {
+                    uncSources.emplace_back(0.8);
+                    uncSources.emplace_back(1.0);
+                } else {
+                    uncSources.insert(uncSources.end(), 2, 1.0);
+                }
             }
             uncertainties.emplace_back(uncSources);
             uncSources.clear();
@@ -513,53 +531,53 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
             }
         }
 
-	//starting phi modulation correction on met 
-	// https://lathomas.web.cern.ch/lathomas/METStuff/XYCorrections/XYMETCorrection_withUL17andUL18andUL16.h
+        //starting phi modulation correction on met
+        // https://lathomas.web.cern.ch/lathomas/METStuff/XYCorrections/XYMETCorrection_withUL17andUL18andUL16.h
 
-	auto uncormet = float(sqrt(metx*metx + mety*mety));
-	auto uncormet_phi = float(atan2(mety, metx));
+        auto uncormet = float(sqrt(metx*metx + mety*mety));
+        auto uncormet_phi = float(atan2(mety, metx));
 
-	if(npv>100) npv=100;
-	auto METxcorr(0.),METycorr(0.);
-	if (!_isData) {
-	//UL2016
-	if(_isRun16pre) METxcorr = -(-0.153497*npv +-0.231751);
-	if(_isRun16pre) METycorr = -(0.00731978*npv +0.243323);
-	if(_isRun16post) METxcorr = -(-0.188743*npv +0.136539);
-	if(_isRun16post) METycorr = -(0.0127927*npv +0.117747);	
-	//UL2017
-	if(_isRun17) METxcorr = -(-0.300155*npv +1.90608);
-	if(_isRun17) METycorr = -(0.300213*npv +-2.02232);
-	//UL2018
-	if(_isRun18) METxcorr = -(0.183518*npv +0.546754);
-	if(_isRun18) METycorr = -(0.192263*npv +-0.42121);
-	}
-	if (_isData) {
-	//UL2018
-	if(runnb >=315252 && runnb <=316995 ) {METxcorr = -(0.263733*npv +-1.91115);METycorr = -(0.0431304*npv +-0.112043);}
-	if(runnb >=316998 && runnb <=319312 ) {METxcorr = -(0.400466*npv +-3.05914);METycorr = -(0.146125*npv +-0.533233);}
-	if(runnb >=319313 && runnb <=320393 ) {METxcorr = -(0.430911*npv +-1.42865);METycorr = -(0.0620083*npv +-1.46021);}
-	if(runnb >=320394 && runnb <=325273 ) {METxcorr = -(0.457327*npv +-1.56856);METycorr = -(0.0684071*npv +-0.928372);}
-	//UL2017
-	if(runnb >=297020 && runnb <=299329 ) {METxcorr = -(-0.211161*npv +0.419333);METycorr = -(0.251789*npv +-1.28089);}
-	if(runnb >=299337 && runnb <=302029 ) {METxcorr = -(-0.185184*npv +-0.164009);METycorr = -(0.200941*npv +-0.56853);}
-	if(runnb >=302030 && runnb <=303434 ) {METxcorr = -(-0.201606*npv +0.426502);METycorr = -(0.188208*npv +-0.58313);}
-	if(runnb >=303435 && runnb <=304826 ) {METxcorr = -(-0.162472*npv +0.176329);METycorr = -(0.138076*npv +-0.250239);}
-	if(runnb >=304911 && runnb <=306462 ) {METxcorr = -(-0.210639*npv +0.72934);METycorr = -(0.198626*npv +1.028);}
-	//UL2016
-	if(runnb >=272007 && runnb <=275376 ) {METxcorr = -(-0.0214894*npv +-0.188255);METycorr = -(0.0876624*npv +0.812885);}
-	if(runnb >=275657 && runnb <=276283 ) {METxcorr = -(-0.032209*npv +0.067288);METycorr = -(0.113917*npv +0.743906);}
-	if(runnb >=276315 && runnb <=276811 ) {METxcorr = -(-0.0293663*npv +0.21106);METycorr = -(0.11331*npv +0.815787);}
-	if(runnb >=276831 && runnb <=277420 ) {METxcorr = -(-0.0132046*npv +0.20073);METycorr = -(0.134809*npv +0.679068);}
-	if(((runnb >=277772 && runnb <=278768) || runnb==278770)) {METxcorr = -(-0.0543566*npv +0.816597);METycorr = -(0.114225*npv +1.17266);};
-	if(((runnb >=278801 && runnb <=278808) || runnb==278769)) {METxcorr = -(0.134616*npv +-0.89965);METycorr = -(0.0397736*npv +1.0385);};
-	if(runnb >=278820 && runnb <=280385 ) {METxcorr = -(0.121809*npv +-0.584893);METycorr = -(0.0558974*npv +0.891234);};
-	if(runnb >=280919 && runnb <=284044 ) {METxcorr = -(0.0868828*npv +-0.703489);METycorr = -(0.0888774*npv +0.902632);};
+        if(npv>100) npv=100;
+        auto METxcorr(0.),METycorr(0.);
+        if (!_isData) {
+            //UL2016
+            if(_isRun16pre) METxcorr = -(-0.153497 * npv + -0.231751);
+            if(_isRun16pre) METycorr = -(0.00731978 * npv + 0.243323);
+            if(_isRun16post) METxcorr = -(-0.188743 * npv + 0.136539);
+            if(_isRun16post) METycorr = -(0.0127927 * npv + 0.117747);
+            //UL2017
+            if(_isRun17) METxcorr = -(-0.300155 * npv + 1.90608);
+            if(_isRun17) METycorr = -(0.300213 * npv + -2.02232);
+            //UL2018
+            if(_isRun18) METxcorr = -(0.183518 * npv + 0.546754);
+            if(_isRun18) METycorr = -(0.192263 * npv + -0.42121);
         }
-	auto CorrectedMET_x = uncormet *cos( uncormet_phi)+METxcorr;
-	auto CorrectedMET_y = uncormet *sin( uncormet_phi)+METycorr;
+        if (_isData) {
+            //UL2018
+            if(runnb >= 315252 && runnb <= 316995 ) {METxcorr = -(0.263733 * npv + -1.91115); METycorr = -(0.0431304 * npv + -0.112043);}
+            if(runnb >= 316998 && runnb <= 319312 ) {METxcorr = -(0.400466 * npv + -3.05914); METycorr = -(0.146125 * npv + -0.533233);}
+            if(runnb >= 319313 && runnb <= 320393 ) {METxcorr = -(0.430911 * npv + -1.42865); METycorr = -(0.0620083 * npv + -1.46021);}
+            if(runnb >= 320394 && runnb <= 325273 ) {METxcorr = -(0.457327 * npv + -1.56856); METycorr = -(0.0684071 * npv + -0.928372);}
+            //UL2017
+            if(runnb >= 297020 && runnb <= 299329 ) {METxcorr = -(-0.211161 * npv + 0.419333); METycorr = -(0.251789 * npv + -1.28089);}
+            if(runnb >= 299337 && runnb <= 302029 ) {METxcorr = -(-0.185184 * npv + -0.164009); METycorr = -(0.200941 * npv + -0.56853);}
+            if(runnb >= 302030 && runnb <= 303434 ) {METxcorr = -(-0.201606 * npv + 0.426502); METycorr = -(0.188208 * npv + -0.58313);}
+            if(runnb >= 303435 && runnb <= 304826 ) {METxcorr = -(-0.162472 * npv + 0.176329); METycorr = -(0.138076 * npv + -0.250239);}
+            if(runnb >= 304911 && runnb <= 306462 ) {METxcorr = -(-0.210639 * npv + 0.72934); METycorr = -(0.198626 * npv + 1.028);}
+            //UL2016
+            if(runnb >= 272007 && runnb <= 275376 ) {METxcorr = -(-0.0214894 * npv + -0.188255); METycorr = -(0.0876624 * npv + 0.812885);}
+            if(runnb >= 275657 && runnb <= 276283 ) {METxcorr = -(-0.032209 * npv + 0.067288); METycorr = -(0.113917 * npv + 0.743906);}
+            if(runnb >= 276315 && runnb <= 276811 ) {METxcorr = -(-0.0293663 * npv + 0.21106); METycorr = -(0.11331 * npv + 0.815787);}
+            if(runnb >= 276831 && runnb <= 277420 ) {METxcorr = -(-0.0132046 * npv + 0.20073); METycorr = -(0.134809 * npv + 0.679068);}
+            if(((runnb >= 277772 && runnb <= 278768) || runnb==278770)) {METxcorr = -(-0.0543566 * npv + 0.816597); METycorr = -(0.114225 * npv + 1.17266);};
+            if(((runnb >= 278801 && runnb <= 278808) || runnb==278769)) {METxcorr = -(0.134616 * npv + -0.89965); METycorr = -(0.0397736 * npv + 1.0385);};
+            if(runnb >= 278820 && runnb <= 280385 ) {METxcorr = -(0.121809 * npv + -0.584893); METycorr = -(0.0558974 * npv + 0.891234);};
+            if(runnb >= 280919 && runnb <= 284044 ) {METxcorr = -(0.0868828 * npv + -0.703489); METycorr = -(0.0888774 * npv + 0.902632);};
+        }
+        auto CorrectedMET_x = uncormet * cos( uncormet_phi ) + METxcorr;
+        auto CorrectedMET_y = uncormet * sin( uncormet_phi ) + METycorr;
 
-	float CorrectedMET = sqrt(CorrectedMET_x*CorrectedMET_x+CorrectedMET_y*CorrectedMET_y);
+        float CorrectedMET = sqrt(CorrectedMET_x * CorrectedMET_x + CorrectedMET_y * CorrectedMET_y);
 
         return CorrectedMET;
     };
@@ -597,61 +615,63 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
                 mety -= (jetptsafter[i] - jetptsbefore[i])*sin(jetphis[i]);
             }
         }
-	//starting phi modulation correction on met phi 
-	// https://lathomas.web.cern.ch/lathomas/METStuff/XYCorrections/XYMETCorrection_withUL17andUL18andUL16.h
 
-	auto uncormet = float(sqrt(metx*metx + mety*mety));
-	auto uncormet_phi = float(atan2(mety, metx));
+        //starting phi modulation correction on met phi
+        // https://lathomas.web.cern.ch/lathomas/METStuff/XYCorrections/XYMETCorrection_withUL17andUL18andUL16.h
 
-	if(npv>100) npv=100;
-	auto METxcorr(0.),METycorr(0.);
-	if (!_isData) {
-	//UL2016
-	if(_isRun16pre) METxcorr = -(-0.153497*npv +-0.231751);
-	if(_isRun16pre) METycorr = -(0.00731978*npv +0.243323);
-	if(_isRun16post) METxcorr = -(-0.188743*npv +0.136539);
-	if(_isRun16post) METycorr = -(0.0127927*npv +0.117747);	
-	//UL2017
-	if(_isRun17) METxcorr = -(-0.300155*npv +1.90608);
-	if(_isRun17) METycorr = -(0.300213*npv +-2.02232);
-	//UL2018
-	if(_isRun18) METxcorr = -(0.183518*npv +0.546754);
-	if(_isRun18) METycorr = -(0.192263*npv +-0.42121);
-	}
-	if (_isData) {
-	//UL2018
-	if(runnb >=315252 && runnb <=316995 ) {METxcorr = -(0.263733*npv +-1.91115);METycorr = -(0.0431304*npv +-0.112043);}
-	if(runnb >=316998 && runnb <=319312 ) {METxcorr = -(0.400466*npv +-3.05914);METycorr = -(0.146125*npv +-0.533233);}
-	if(runnb >=319313 && runnb <=320393 ) {METxcorr = -(0.430911*npv +-1.42865);METycorr = -(0.0620083*npv +-1.46021);}
-	if(runnb >=320394 && runnb <=325273 ) {METxcorr = -(0.457327*npv +-1.56856);METycorr = -(0.0684071*npv +-0.928372);}
-	//UL2017
-	if(runnb >=297020 && runnb <=299329 ) {METxcorr = -(-0.211161*npv +0.419333);METycorr = -(0.251789*npv +-1.28089);}
-	if(runnb >=299337 && runnb <=302029 ) {METxcorr = -(-0.185184*npv +-0.164009);METycorr = -(0.200941*npv +-0.56853);}
-	if(runnb >=302030 && runnb <=303434 ) {METxcorr = -(-0.201606*npv +0.426502);METycorr = -(0.188208*npv +-0.58313);}
-	if(runnb >=303435 && runnb <=304826 ) {METxcorr = -(-0.162472*npv +0.176329);METycorr = -(0.138076*npv +-0.250239);}
-	if(runnb >=304911 && runnb <=306462 ) {METxcorr = -(-0.210639*npv +0.72934);METycorr = -(0.198626*npv +1.028);}
-	//UL2016
-	if(runnb >=272007 && runnb <=275376 ) {METxcorr = -(-0.0214894*npv +-0.188255);METycorr = -(0.0876624*npv +0.812885);}
-	if(runnb >=275657 && runnb <=276283 ) {METxcorr = -(-0.032209*npv +0.067288);METycorr = -(0.113917*npv +0.743906);}
-	if(runnb >=276315 && runnb <=276811 ) {METxcorr = -(-0.0293663*npv +0.21106);METycorr = -(0.11331*npv +0.815787);}
-	if(runnb >=276831 && runnb <=277420 ) {METxcorr = -(-0.0132046*npv +0.20073);METycorr = -(0.134809*npv +0.679068);}
-	if(((runnb >=277772 && runnb <=278768) || runnb==278770)) {METxcorr = -(-0.0543566*npv +0.816597);METycorr = -(0.114225*npv +1.17266);};
-	if(((runnb >=278801 && runnb <=278808) || runnb==278769)) {METxcorr = -(0.134616*npv +-0.89965);METycorr = -(0.0397736*npv +1.0385);};
-	if(runnb >=278820 && runnb <=280385 ) {METxcorr = -(0.121809*npv +-0.584893);METycorr = -(0.0558974*npv +0.891234);};
-	if(runnb >=280919 && runnb <=284044 ) {METxcorr = -(0.0868828*npv +-0.703489);METycorr = -(0.0888774*npv +0.902632);};
+        auto uncormet = float(sqrt(metx*metx + mety*mety));
+        auto uncormet_phi = float(atan2(mety, metx));
+
+        if(npv>100) npv=100;
+        auto METxcorr(0.),METycorr(0.);
+
+        if (!_isData) {
+            //UL2016
+            if (_isRun16pre) METxcorr = -(-0.153497 * npv + -0.231751);
+            if (_isRun16pre) METycorr = -(0.00731978 * npv + 0.243323);
+            if (_isRun16post) METxcorr = -(-0.188743 * npv + 0.136539);
+            if (_isRun16post) METycorr = -(0.0127927 * npv + 0.117747);
+            //UL2017
+            if (_isRun17) METxcorr = -(-0.300155 * npv + 1.90608);
+            if (_isRun17) METycorr = -(0.300213 * npv + -2.02232);
+            //UL2018
+            if (_isRun18) METxcorr = -(0.183518 * npv + 0.546754);
+            if (_isRun18) METycorr = -(0.192263 * npv + -0.42121);
+        }
+        if (_isData) {
+            //UL2018
+            if (runnb >= 315252 && runnb <= 316995 ) {METxcorr = -(0.263733 * npv + -1.91115); METycorr = -(0.0431304 * npv + -0.112043);}
+            if (runnb >= 316998 && runnb <= 319312 ) {METxcorr = -(0.400466 * npv + -3.05914); METycorr = -(0.146125 * npv + -0.533233);}
+            if (runnb >= 319313 && runnb <= 320393 ) {METxcorr = -(0.430911 * npv + -1.42865); METycorr = -(0.0620083 * npv + -1.46021);}
+            if (runnb >= 320394 && runnb <= 325273 ) {METxcorr = -(0.457327 * npv + -1.56856); METycorr = -(0.0684071 * npv + -0.928372);}
+            //UL2017
+            if (runnb >= 297020 && runnb <= 299329 ) {METxcorr = -(-0.211161 * npv + 0.419333); METycorr = -(0.251789 * npv + -1.28089);}
+            if (runnb >= 299337 && runnb <= 302029 ) {METxcorr = -(-0.185184 * npv + -0.164009); METycorr = -(0.200941 * npv + -0.56853);}
+            if (runnb >= 302030 && runnb <= 303434 ) {METxcorr = -(-0.201606 * npv + 0.426502); METycorr = -(0.188208 * npv + -0.58313);}
+            if (runnb >= 303435 && runnb <= 304826 ) {METxcorr = -(-0.162472 * npv + 0.176329); METycorr = -(0.138076 * npv + -0.250239);}
+            if (runnb >= 304911 && runnb <= 306462 ) {METxcorr = -(-0.210639 * npv + 0.72934); METycorr = -(0.198626 * npv + 1.028);}
+            //UL2016
+            if (runnb >= 272007 && runnb <= 275376 ) {METxcorr = -(-0.0214894 * npv + -0.188255); METycorr = -(0.0876624 * npv + 0.812885);}
+            if (runnb >= 275657 && runnb <= 276283 ) {METxcorr = -(-0.032209 * npv + 0.067288); METycorr = -(0.113917 * npv + 0.743906);}
+            if (runnb >= 276315 && runnb <= 276811 ) {METxcorr = -(-0.0293663 * npv + 0.21106); METycorr = -(0.11331 * npv + 0.815787);}
+            if (runnb >= 276831 && runnb <= 277420 ) {METxcorr = -(-0.0132046 * npv + 0.20073); METycorr = -(0.134809 * npv + 0.679068);}
+            if (((runnb >= 277772 && runnb <= 278768) || runnb==278770)) {METxcorr = -(-0.0543566 * npv + 0.816597); METycorr = -(0.114225 * npv + 1.17266);};
+            if (((runnb >= 278801 && runnb <= 278808) || runnb==278769)) {METxcorr = -(0.134616 * npv + -0.89965); METycorr = -(0.0397736 * npv + 1.0385);};
+            if (runnb >= 278820 && runnb <= 280385 ) {METxcorr = -(0.121809 * npv + -0.584893); METycorr = -(0.0558974 * npv + 0.891234);};
+            if (runnb >= 280919 && runnb <= 284044 ) {METxcorr = -(0.0868828 * npv + -0.703489); METycorr = -(0.0888774 * npv + 0.902632);};
         }
 
-	auto CorrectedMET_x = uncormet *cos( uncormet_phi)+METxcorr;
-	auto CorrectedMET_y = uncormet *sin( uncormet_phi)+METycorr;
+        auto CorrectedMET_x = uncormet * cos( uncormet_phi ) + METxcorr;
+        auto CorrectedMET_y = uncormet * sin( uncormet_phi ) + METycorr;
 
         float CorrectedMETPhi;
 
-        if(CorrectedMET_x==0 && CorrectedMET_y>0) CorrectedMETPhi = TMath::Pi();
-        else if(CorrectedMET_x==0 && CorrectedMET_y<0 )CorrectedMETPhi = -TMath::Pi();
-        else if(CorrectedMET_x >0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y/CorrectedMET_x);
-        else if(CorrectedMET_x <0&& CorrectedMET_y>0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y/CorrectedMET_x) + TMath::Pi();
-        else if(CorrectedMET_x <0&& CorrectedMET_y<0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y/CorrectedMET_x) - TMath::Pi();
-        else CorrectedMETPhi =0;
+        if      (CorrectedMET_x==0 && CorrectedMET_y>0) CorrectedMETPhi = TMath::Pi();
+        else if (CorrectedMET_x==0 && CorrectedMET_y<0 ) CorrectedMETPhi = -TMath::Pi();
+        else if (CorrectedMET_x >0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y / CorrectedMET_x);
+        else if (CorrectedMET_x <0 && CorrectedMET_y>0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y / CorrectedMET_x) + TMath::Pi();
+        else if (CorrectedMET_x <0 && CorrectedMET_y<0) CorrectedMETPhi = TMath::ATan(CorrectedMET_y / CorrectedMET_x) - TMath::Pi();
+        else    CorrectedMETPhi =0;
 
         return CorrectedMETPhi;
     };
@@ -684,7 +704,7 @@ void NanoAODAnalyzerrdframe::setupJetMETCorrection(string globaltag, std::vector
                    .Redefine("MET_pt", metCorr, {"MET_pt", "MET_phi", "Jet_pt", "Jet_pt_corr", "Jet_phi","PV_npvsGood", "run"})
                    .Redefine("MET_phi", metPhiCorr, {"MET_pt", "MET_phi", "Jet_pt", "Jet_pt_corr", "Jet_phi", "PV_npvsGood", "run"});
         if (!dataMc) {
-            _rlm = _rlm.Define("Jet_pt_unc", jesUnc, {"Jet_pt", "Jet_eta", "Jet_area", "Jet_rawFactor", "fixedGridRhoFastjetAll"})
+            _rlm = _rlm.Define("Jet_pt_unc", jesUnc, {"Jet_pt", "Jet_eta", "Jet_phi", "Jet_area", "Jet_rawFactor", "fixedGridRhoFastjetAll"})
                        .Define("MET_pt_unc", metUnc, {"MET_pt", "MET_phi", "Jet_pt", "Jet_pt_unc", "Jet_phi"})
                        .Define("MET_phi_unc", metPhiUnc, {"MET_pt", "MET_phi", "Jet_pt", "Jet_pt_unc", "Jet_phi"});
         }
@@ -835,6 +855,11 @@ void NanoAODAnalyzerrdframe::applyBSFs(std::vector<string> jes_var) {
     cout << "Loading Btag SF" << endl;
     string btagpath = "data/btagSF/";
 
+    if (_year == "2018") {
+        jes_var.erase(std::remove(jes_var.begin(), jes_var.end(), "jesHEMup"), jes_var.end());
+        jes_var.erase(std::remove(jes_var.begin(), jes_var.end(), "jesHEMdown"), jes_var.end());
+    }
+
     BTagCalibration _btagcalib = {"DeepJet", btagpath + "skimmed_btag_" + _year + ".csv"};
     cout << "    Loaded file : " << btagpath + "skimmed_btag_" + _year + ".csv" << endl;
     BTagCalibration _btagcalibJes = {"DeepJet", btagpath + "skimmed_jes_" + _year + ".csv"};
@@ -842,7 +867,6 @@ void NanoAODAnalyzerrdframe::applyBSFs(std::vector<string> jes_var) {
 
     _rlm = _rlm.Define("btag_var", [](){return strings(btag_var);})
                .Define("btag_jes_var", [jes_var](){return strings(jes_var);});
-
 
     BTagCalibrationReader _btagcalibreader = {BTagEntry::OP_RESHAPING, "central", btag_var};
     BTagCalibrationReader _btagcalibreaderJes = {BTagEntry::OP_RESHAPING, "central", jes_var};
@@ -1273,19 +1297,14 @@ void NanoAODAnalyzerrdframe::calculateEvWeight() {
 
     // Tau SF
     cout << "Loading Tau SF" << endl;
-    std::string tauid_vse = "VLoose";
-    std::string tauid_vsmu = "Tight";
     std::string tauid_vsjet = "VTight";
+    std::string tauid_vse   = "VVLoose";
+    std::string tauid_vsmu  = "Tight";
 
     cout << "Tau ID WP vsJet : " << tauid_vsjet << endl;
     cout << "Tau ID WP vsMuon : " << tauid_vsmu << endl;
     cout << "Tau ID WP vsElectron : " << tauid_vse << endl;
 
-    TauIDSFTool* _tauidSFjet;
-    TauIDSFTool* _tauidSFele;
-    TauIDSFTool* _tauidSFmu;
-    TauESTool* _testool;
-    TauFESTool* _festool;
     std::string tauYear = "";
 
     if (_isRun16pre) {
@@ -1295,93 +1314,31 @@ void NanoAODAnalyzerrdframe::calculateEvWeight() {
     } else {
         tauYear = "UL" + _year;
     }
-    _tauidSFjet = new TauIDSFTool(tauYear, "DeepTau2017v2p1VSjet", tauid_vsjet);
-    _tauidSFele = new TauIDSFTool(tauYear, "DeepTau2017v2p1VSe", tauid_vse);
-    _tauidSFmu = new TauIDSFTool(tauYear, "DeepTau2017v2p1VSmu", tauid_vsmu);
-    _testool = new TauESTool(tauYear, "DeepTau2017v2p1VSjet");
-    _festool = new TauFESTool(tauYear);
 
-    auto tauSFIdVsJet = [this, _tauidSFjet](floats &pt, floats &eta, uchars &genid)->floatsVec {
-
-        floats uncSources;
-        uncSources.reserve(3);
-        floatsVec wVec;
-        wVec.reserve(pt.size());
-
-        if (pt.size() > 0) {
-            for (unsigned int i=0; i<pt.size(); i++) {
-                uncSources.emplace_back(_tauidSFjet->getSFvsPT(pt[i], int(genid[i])));
-                uncSources.emplace_back(_tauidSFjet->getSFvsPT(pt[i], int(genid[i]), "Up"));
-                uncSources.emplace_back(_tauidSFjet->getSFvsPT(pt[i], int(genid[i]), "Down"));
-                wVec.emplace_back(uncSources);
-                uncSources.clear();
-            }
-        }
-        return wVec;
-    };
-
-    auto tauSFIdVsEl = [this, _tauidSFele](floats &pt, floats &eta, uchars &genid)->floatsVec {
-
-        floats uncSources;
-        uncSources.reserve(3);
-        floatsVec wVec;
-        wVec.reserve(pt.size());
-
-        if (pt.size() > 0) {
-            for (unsigned int i=0; i<pt.size(); i++) {
-                uncSources.emplace_back(_tauidSFele->getSFvsEta(abs(eta[i]), int(genid[i])));
-                uncSources.emplace_back(_tauidSFele->getSFvsEta(abs(eta[i]), int(genid[i]), "Up"));
-                uncSources.emplace_back(_tauidSFele->getSFvsEta(abs(eta[i]), int(genid[i]), "Down"));
-                wVec.emplace_back(uncSources);
-                uncSources.clear();
-            }
-        }
-        return wVec;
-    };
-
-    auto tauSFIdVsMu = [this, _tauidSFmu](floats &pt, floats &eta, uchars &genid)->floatsVec {
-
-        floats uncSources;
-        uncSources.reserve(3);
-        floatsVec wVec;
-        wVec.reserve(pt.size());
-
-        if (pt.size() > 0) {
-            for (unsigned int i=0; i<pt.size(); i++) {
-                uncSources.emplace_back(_tauidSFmu->getSFvsEta(abs(eta[i]), int(genid[i])));
-                uncSources.emplace_back(_tauidSFmu->getSFvsEta(abs(eta[i]), int(genid[i]), "Up"));
-                uncSources.emplace_back(_tauidSFmu->getSFvsEta(abs(eta[i]), int(genid[i]), "Down"));
-                wVec.emplace_back(uncSources);
-                uncSources.clear();
-            }
-        }
-        return wVec;
-    };
-
-    _rlm = _rlm.Define("tauWeightIdVsJet", tauSFIdVsJet, {"Tau_pt","Tau_eta","Tau_genPartFlav"})
-               .Define("tauWeightIdVsEl", tauSFIdVsEl, {"Tau_pt","Tau_eta","Tau_genPartFlav"})
-               .Define("tauWeightIdVsMu", tauSFIdVsMu, {"Tau_pt","Tau_eta","Tau_genPartFlav"});
+    auto tauSFreader = correction::CorrectionSet::from_file("data/TauIDSFs/tau_" + tauYear + ".json.gz");
+    //auto _tauidSFjet = tauSFreader->at("DeepTau2017v2p1VSjet");
+    auto _tauidSFele = tauSFreader->at("DeepTau2017v2p1VSe");
+    auto _tauidSFmu  = tauSFreader->at("DeepTau2017v2p1VSmu");
+    auto _testool    = tauSFreader->at("tau_energy_scale");
 
     // Tau ES
     cout<<"Applying TauES on Genuine taus"<<endl;
-    auto tauES = [this, _testool, _festool](floats &pt, floats &eta, ints &dm, uchars &genid, floats &x)->floats {
+    auto tauES = [this, _testool](floats &pt, floats &eta, ints &dm, uchars &genid, floats &x)->floats {
 
         floats xout;
 
         for (unsigned int i=0; i<pt.size(); i++) {
             float es = 1.0;
-            if (genid[i]==5) {
-                es = _testool->getTES(pt[i], dm[i], genid[i]);
-            } else if (genid[i]==1 || genid[i]==3){
-                es = _festool->getFES(eta[i], dm[i], genid[i]);
+            if (int(genid[i])==1 || int(genid[i])==3 || int(genid[i])==5) {
+                if (dm[i]!=5 and dm[i]!=6)
+                    es = _testool->evaluate({pt[i], eta[i], dm[i], int(genid[i]), "DeepTau2017v2p1", "nom"});
             }
             xout.emplace_back(x[i]*es);
         }
         return xout;
     };
 
-    // return SF for pT and mass
-    auto tauESUnc = [this, _testool, _festool](floats &pt, floats &eta, ints &dm, uchars &genid, floats &x)->floatsVec {
+    auto tauESUnc = [this, _testool](floats &pt, floats &eta, ints &dm, uchars &genid, floats &x)->floatsVec {
 
         floats uncSources;
         uncSources.reserve(2);
@@ -1389,12 +1346,11 @@ void NanoAODAnalyzerrdframe::calculateEvWeight() {
         xout.reserve(pt.size());
 
         for (unsigned int i=0; i<pt.size(); i++) {
-            if (genid[i]==5) {
-                uncSources.emplace_back(_testool->getTES(pt[i], dm[i], genid[i], "Up"));
-                uncSources.emplace_back(_testool->getTES(pt[i], dm[i], genid[i], "Down"));
-            } else if (genid[i]==1 || genid[i]==3){
-                uncSources.emplace_back(_festool->getFES(eta[i], dm[i], genid[i], "Up"));
-                uncSources.emplace_back(_festool->getFES(eta[i], dm[i], genid[i], "Down"));
+            if (int(genid[i])==1 || int(genid[i])==3 || int(genid[i])==5) {
+                if (dm[i]!=5 and dm[i]!=6) {
+                    uncSources.emplace_back(_testool->evaluate({pt[i], eta[i], dm[i], int(genid[i]), "DeepTau2017v2p1", "up"}));
+                    uncSources.emplace_back(_testool->evaluate({pt[i], eta[i], dm[i], int(genid[i]), "DeepTau2017v2p1", "down"}));
+                }
             }
             else uncSources = {1.0f, 1.0f};
             xout.emplace_back(uncSources);
@@ -1403,10 +1359,147 @@ void NanoAODAnalyzerrdframe::calculateEvWeight() {
         return xout;
     };
 
-    _rlm = _rlm.Define("Tau_pt_uncor", "Tau_pt")
+        _rlm = _rlm.Define("Tau_pt_uncor", "Tau_pt")
                .Redefine("Tau_pt", tauES, {"Tau_pt_uncor", "Tau_eta", "Tau_decayMode", "Tau_genPartFlav", "Tau_pt_uncor"})
                .Redefine("Tau_mass", tauES, {"Tau_pt_uncor", "Tau_eta", "Tau_decayMode", "Tau_genPartFlav", "Tau_mass"})
                .Define("Tau_pt_unc", tauESUnc, {"Tau_pt_uncor", "Tau_eta", "Tau_decayMode", "Tau_genPartFlav", "Tau_pt_uncor"});
+
+
+    // ID SFs
+    /* For correctionlib -> json is not ready
+    auto tauSFIdVsJet = [this, _tauidSFjet, tauYear, tauid_vsjet, tauid_vse](floats &pt, floats &eta, uchars &genid, ints &dm)->floatsVec {
+
+        floats uncSources;
+        uncSources.reserve(11);
+        floatsVec wVec;
+        wVec.reserve(pt.size());
+
+        auto year_ = tauYear.substr(2);
+        //std::vector<std::string> uncerts = {"uncert0", "uncert1", "syst_alleras", "syst_" + year_, "syst_dmX_" + year_};
+
+        if (pt.size() > 0) {
+            for (unsigned int i=0; i<pt.size(); i++) {
+                // TauSFTool will take care of pt > 140 SF by setting pT = 140
+                uncSources.emplace_back(_tauidSFjet->evaluate({pt[i], dm[i], int(genid[i]), tauid_vsjet, tauid_vse, "nom", "pt"}));
+
+                //for (auto unc : uncerts) {
+                //    size_t pos = unc.find("dmX");
+                //    if (pos != std::string::npos) unc.replace(pos, 3, "dm"+std::to_string(dm[i]));
+                //    if (pt[i] <= 140) {
+                //        uncSources.emplace_back(_tauidSFjet->evaluate({pt[i], dm[i], int(genid[i]), tauid_vsjet, tauid_vse, unc + "_up", "pt"}));
+                //        uncSources.emplace_back(_tauidSFjet->evaluate({pt[i], dm[i], int(genid[i]), tauid_vsjet, tauid_vse, unc + "_down", "pt"}));
+                //    } else {
+                //        uncSources.emplace_back(1.0 + (min(pt[i], static_cast<float>(500.)) - 40.) * (pt[i] > 40.) * 0.00018);
+                //        uncSources.emplace_back(1.0 - (min(pt[i], static_cast<float>(500.)) - 40.) * (pt[i] > 40.) * 0.00018);
+                //    }
+                //}
+                wVec.emplace_back(uncSources);
+                uncSources.clear();
+            }
+        }
+        return wVec;
+    };
+    */
+
+    TauIDSFTool* _tauidSFjet;
+    TauIDSFTool* _tauidSFjetHighPt;
+    _tauidSFjet = new TauIDSFTool(tauYear, "DeepTau2017v2p1VSjet", tauid_vsjet, tauid_vse, false, true, false, false);
+    _tauidSFjetHighPt = new TauIDSFTool(tauYear, "DeepTau2017v2p1VSjet", tauid_vsjet, tauid_vse, false, false, false, true);
+
+    auto tauSFIdVsJet = [this, _tauidSFjet, _tauidSFjetHighPt, tauYear](floats &pt, floats &eta, uchars &genid, ints dm)->floatsVec {
+
+        floats uncSources;
+        uncSources.reserve(27); //nom + syst 40 + highPT 2
+        floatsVec wVec;
+        wVec.reserve(pt.size());
+
+        auto year_ = tauYear.substr(2);
+        std::vector<std::string> uncerts = {"uncert0", "uncert1", "syst_alleras", "syst_" + year_, "syst_dmX_" + year_};
+        std::vector<std::string> uncertsHighPt = {"stat","stat_bin1","stat_bin2","syst","extrap"};
+
+        if (pt.size() > 0) {
+            for (unsigned int i=0; i<pt.size(); i++) {
+                // TauSFTool will take care of pt > 140 SF by setting pT = 140
+                float nomsf = _tauidSFjet->getSFvsDMandPT(pt[i], dm[i], int(genid[i]));
+                float nomsf_highpt = _tauidSFjetHighPt->getHighPTSFvsPT(pt[i], int(genid[i]));
+                uncSources.emplace_back(nomsf);
+
+                if (pt[i] <= 140) {
+                    for (auto unc : uncerts) {
+                        size_t pos = unc.find("dmX");
+                        if (pos != std::string::npos) { //indices 9-16
+                            unc.replace(pos, 3, "dm"+std::to_string(dm[i]));
+                            float upsf = _tauidSFjet->getSFvsDMandPT(pt[i], dm[i], int(genid[i]), unc + "_up");
+                            float dnsf = _tauidSFjet->getSFvsDMandPT(pt[i], dm[i], int(genid[i]), unc + "_down");
+                            std::vector<float> dmsf;
+                            if      (dm[i] == 0)  dmsf = {upsf, dnsf, nomsf, nomsf, nomsf, nomsf, nomsf, nomsf};
+                            else if (dm[i] == 1)  dmsf = {nomsf, nomsf, upsf, dnsf, nomsf, nomsf, nomsf, nomsf};
+                            else if (dm[i] == 10) dmsf = {nomsf, nomsf, nomsf, nomsf, upsf, dnsf, nomsf, nomsf};
+                            else if (dm[i] == 11) dmsf = {nomsf, nomsf, nomsf, nomsf, nomsf, nomsf, upsf, dnsf};
+                            else                  dmsf = {nomsf, nomsf, nomsf, nomsf, nomsf, nomsf, nomsf, nomsf}; //placeholder
+                            uncSources.insert(uncSources.end(), dmsf.begin(), dmsf.end());
+                        } else { //indices 1-8
+                            uncSources.emplace_back(_tauidSFjet->getSFvsDMandPT(pt[i], dm[i], int(genid[i]), unc + "_up"));
+                            uncSources.emplace_back(_tauidSFjet->getSFvsDMandPT(pt[i], dm[i], int(genid[i]), unc + "_down"));
+                        }
+                    }
+                    uncSources.insert(uncSources.end(), 10, nomsf);
+                } else {
+                    uncSources.insert(uncSources.end(), 16, nomsf_highpt);
+                    for (auto unc : uncertsHighPt) {
+                        uncSources.emplace_back(_tauidSFjetHighPt->getHighPTSFvsPT(pt[i], int(genid[i]), unc + "_up"));
+                        uncSources.emplace_back(_tauidSFjetHighPt->getHighPTSFvsPT(pt[i], int(genid[i]), unc + "_down"));
+                    }
+                }
+                wVec.emplace_back(uncSources);
+                uncSources.clear();
+            }
+        }
+        return wVec;
+    };
+
+    auto tauSFIdVsEl = [this, _tauidSFele, tauid_vse](floats &pt, floats &eta, uchars &genid)->floatsVec {
+
+        floats uncSources;
+        uncSources.reserve(3);
+        floatsVec wVec;
+        wVec.reserve(pt.size());
+
+        if (pt.size() > 0) {
+            for (unsigned int i=0; i<pt.size(); i++) {
+                uncSources.emplace_back(_tauidSFele->evaluate({abs(eta[i]), int(genid[i]), tauid_vse, "nom"}));
+                uncSources.emplace_back(_tauidSFele->evaluate({abs(eta[i]), int(genid[i]), tauid_vse, "up"}));
+                uncSources.emplace_back(_tauidSFele->evaluate({abs(eta[i]), int(genid[i]), tauid_vse, "down"}));
+                wVec.emplace_back(uncSources);
+                uncSources.clear();
+            }
+        }
+        return wVec;
+    };
+
+    auto tauSFIdVsMu = [this, _tauidSFmu, tauid_vsmu](floats &pt, floats &eta, uchars &genid)->floatsVec {
+
+        floats uncSources;
+        uncSources.reserve(3);
+        floatsVec wVec;
+        wVec.reserve(pt.size());
+
+        if (pt.size() > 0) {
+            for (unsigned int i=0; i<pt.size(); i++) {
+                uncSources.emplace_back(_tauidSFmu->evaluate({abs(eta[i]), int(genid[i]), tauid_vsmu, "nom"}));
+                uncSources.emplace_back(_tauidSFmu->evaluate({abs(eta[i]), int(genid[i]), tauid_vsmu, "up"}));
+                uncSources.emplace_back(_tauidSFmu->evaluate({abs(eta[i]), int(genid[i]), tauid_vsmu, "down"}));
+                wVec.emplace_back(uncSources);
+                uncSources.clear();
+            }
+        }
+        return wVec;
+    };
+
+    _rlm = _rlm.Define("tauWeightIdVsJet", tauSFIdVsJet, {"Tau_pt","Tau_eta","Tau_genPartFlav", "Tau_decayMode"})
+               .Define("tauWeightIdVsEl", tauSFIdVsEl, {"Tau_pt","Tau_eta","Tau_genPartFlav"})
+               .Define("tauWeightIdVsMu", tauSFIdVsMu, {"Tau_pt","Tau_eta","Tau_genPartFlav"});
+
 }
 
 
@@ -1438,7 +1531,7 @@ void NanoAODAnalyzerrdframe::setupCuts_and_Hists() {
         std::string hpost = "";
 
         if (x.mincutstep.length()==0) {
-            helper_1DHistCreator(std::string(x.hmodel.fName)+hpost+x.systname,  std::string(x.hmodel.fTitle), x.hmodel.fNbinsX, x.hmodel.fXLow, x.hmodel.fXUp, x.varname, x.weightname+x.systname, &_rlm);
+            helper_1DHistCreator(std::string(x.hmodel.fName.Data())+hpost+x.systname,  std::string(x.hmodel.fTitle.Data()), x.hmodel.fNbinsX, x.hmodel.fXLow, x.hmodel.fXUp, x.varname, x.weightname+x.systname, &_rlm);
         }
     }
 
@@ -1460,7 +1553,7 @@ void NanoAODAnalyzerrdframe::setupCuts_and_Hists() {
                 bool reachedMax = false;
                 if (x.maxcutstep.length() > 0 and acut.idx.compare(0, x.maxcutstep.length(), x.maxcutstep)>=0) reachedMax = true;
                 if (!reachedMax)
-                    helper_1DHistCreator(std::string(x.hmodel.fName)+hpost+x.systname,  std::string(x.hmodel.fTitle), x.hmodel.fNbinsX, x.hmodel.fXLow, x.hmodel.fXUp, x.varname, x.weightname+x.systname, rnext);
+                    helper_1DHistCreator(std::string(x.hmodel.fName.Data())+hpost+x.systname,  std::string(x.hmodel.fTitle.Data()), x.hmodel.fNbinsX, x.hmodel.fXLow, x.hmodel.fXUp, x.varname, x.weightname+x.systname, rnext);
             }
         }
         _rnt.addDaughter(rnext, acut.idx);

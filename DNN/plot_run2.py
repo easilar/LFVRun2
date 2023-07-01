@@ -21,13 +21,12 @@ groups = ['GData', 'Gttll', 'Gttlj', 'Gttjj', 'GttV', 'GZJets', 'GWJets', 'GSing
 #common_syst_list = ['pu', 'muid', 'muiso', 'mutrg', 'elid', 'elreco', 'eltrg',
 syst = ['jesAbsolute_year', 'jesBBEC1_year', 'jesRelativeSample_year'] #jesEC2year missing
 systs_tofile = ['jer',  'jesAbsolute', 'jesBBEC1', 'jesFlavorQCD', 'jesRelativeBal', 'tes']
-systs_toweight = ['btagcferr1', 'btagcferr2', 'btaghf', 'btaghfstats1', 'btaghfstats2', 'btaglf', 'btaglfstats1', 'btaglfstats2',   'muid', 'muiso', 'mutrg', 'pu', 'tauidel', 'tauidjet', 'tauidmu']
+systs_toweight = ['btagcferr1', 'btagcferr2', 'btaghf', 'btaghfstats1', 'btaghfstats2', 'btaglf', 'btaglfstats1', 'btaglfstats2',   'muid', 'muiso', 'mutrg', 'prefire','pu', 'tauidel', 'tauidmu']
 common_syst_list = systs_tofile+systs_toweight
 
 #common_syst_list = []
 #syst = []
-#years = {'2016pre': 19502, '2016post': 16812, '2017': 41480, '2018':59832}
-years = {'2018':59832}
+years = {'2016pre': 19502, '2016post': 16812, '2017': 41480, '2018':59832}
 
 for sy in syst:
   if 'year' in sy:

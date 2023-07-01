@@ -147,7 +147,7 @@
 'hist_TTWJetsToLNu.root':
   type: mc
   pretty-name: 'TTWJetsToLNu'
-  cross-section: 0.2529
+  cross-section: 0.2163
   generated-events: 1800823
   group: GttV
   yields-group: '7tt+X'
@@ -156,7 +156,7 @@
 'hist_TTWJetsToQQ.root':
   type: mc
   pretty-name: 'TTWJetsToQQ'
-  cross-section: 0.5297
+  cross-section: 0.4432
   generated-events: 168951
   group: GttV
   yields-group: '7tt+X'
@@ -165,7 +165,7 @@
 'hist_TTZToLLNuNu.root':
   type: mc
   pretty-name: 'TTZToLLNuNu'
-  cross-section: 0.2529
+  cross-section: 0.2439
   generated-events: 2962856
   group: GttV
   yields-group: '7tt+X'
@@ -174,7 +174,7 @@
 'hist_TTZToQQ.root':
   type: mc
   pretty-name: 'TTZToQQ'
-  cross-section: 0.5297
+  cross-section: 0.5113
   generated-events: 2682510
   group: GttV
   yields-group: '7tt+X'
@@ -237,7 +237,7 @@
 'hist_WZ.root':
   type: mc
   pretty-name: 'WZ'
-  cross-section: 47.13
+  cross-section: 46.75
   generated-events: 7584000
   group: GVV
   yields-group: '8VV'

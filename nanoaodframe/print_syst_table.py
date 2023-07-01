@@ -16,23 +16,57 @@ tmp_file_name = 'temp_' + year + '_forSyst.yml'
 string_to_add = 'systematics:\n'
 plot_to_add = "plots:\n  include: ['histos_yield.yml']\n\n"
 
+if   year == "2016pre" : tauYear = "UL2016_preVFP"
+elif year == "2016post": tauYear = "UL2016_postVFP"
+else                   : tauYear = "UL" + year
+
 if os.path.exists(config_path + tmp_file_name):
     os.remove(config_path + tmp_file_name)
 #shutil.copy2(config_path + 'config_' + year + '.yml', config_path + tmp_file_name)
 
 unc_cat = OrderedDict([
 ('all', ['xsec', 'pu', 'muid', 'muiso', 'mutrg',
-         'tauidjet', 'tauidel', 'tauidmu', 'tes',
+         #'tauidjet', 'tauidel', 'tauidmu', 'tes',
+         'tauidjetUncert0', 'tauidjetUncert1', 'tauidjetSystalleras',
+         'tauidjetSyst'+tauYear, 'tauidjetSystdm0'+tauYear, 'tauidjetSystdm1'+tauYear,
+         'tauidjetSystdm10'+tauYear, 'tauidjetSystdm11'+tauYear,
+         'tauidjetHighptstat_bin1', 'tauidjetHighptstat_bin2',
+         'tauidjetHighptsyst', 'tauidjetHighptextrap',
+         'tauidel', 'tauidmu', 'tes',
          'btaghf', 'btaglf', 'btaghfstats1', 'btaglfstats1',
          'btaghfstats2', 'btaglfstats2', 'btagcferr1', 'btagcferr2',
          'jesAbsolute', 'jesAbsolute_'+year[:4], 'jesBBEC1', 'jesBBEC1_'+year[:4],
          'jesFlavorQCD', 'jesRelativeBal', 'jesRelativeSample_'+year[:4], 'jer',
          'scale', 'ps', 'pdf',
-         'py8tune', 'hdamp',]),
+         'tune', 'hdamp',]),
 ('pu', ['pu']),
+('prefire', ['prefire']),
 ('xsec', ['xsec']),
 ('muon', ['muid', 'muiso', 'mutrg']),
-('tauid', ['tauidjet', 'tauidel', 'tauidmu']),
+#('tauid', ['tauidjet', 'tauidel', 'tauidmu']),
+('tauid', ['tauidjetUncert0', 'tauidjetUncert1', 'tauidjetSystalleras',
+           'tauidjetSyst'+tauYear, 'tauidjetSystdm0'+tauYear, 'tauidjetSystdm1'+tauYear,
+           'tauidjetSystdm10'+tauYear, 'tauidjetSystdm11'+tauYear, 'tauidjetHighpt',
+           'tauidel', 'tauidmu']),
+('tauidjetUncert0', ['tauidjetUncert0']),
+('tauidjetUncert1', ['tauidjetUncert1']),
+('tauidjetSystalleras', ['tauidjetSystalleras']),
+('tauidjetSyst'+tauYear, ['tauidjetSyst'+tauYear]),
+('tauidjetSystdm0'+tauYear, ['tauidjetSystdm0'+tauYear]),
+('tauidjetSystdm1'+tauYear, ['tauidjetSystdm1'+tauYear]),
+('tauidjetSystdm10'+tauYear, ['tauidjetSystdm10'+tauYear]),
+('tauidjetSystdm11'+tauYear, ['tauidjetSystdm11'+tauYear]),
+('tauidjetHighptstat_bin1', ['tauidjetHighptstat_bin1']),
+('tauidjetHighptstat_bin2', ['tauidjetHighptstat_bin2']),
+('tauidjetHighptsyst', ['tauidjetHighptsyst']),
+('tauidjetHighptextrap', ['tauidjetHighptextrap']),
+('tauidjet', ['tauidjetUncert0', 'tauidjetUncert1', 'tauidjetSystalleras',
+              'tauidjetSyst'+tauYear, 'tauidjetSystdm0'+tauYear, 'tauidjetSystdm1'+tauYear,
+              'tauidjetSystdm10'+tauYear, 'tauidjetSystdm11'+tauYear,
+              'tauidjetHighptstat_bin1', 'tauidjetHighptstat_bin2',
+              'tauidjetHighptsyst', 'tauidjetHighptextrap']),
+('tauidel', ['tauidel']),
+('tauidmu', ['tauidmu']),
 ('tes', ['tes']),
 ('jesAbsolute', ['jesAbsolute']),
 ('jesAbsolute_'+year[:4], ['jesAbsolute_'+year[:4]]),
@@ -48,7 +82,7 @@ unc_cat = OrderedDict([
 ('ps', ['ps']),
 ('hdamp', ['hdamp']),
 ('pdf', ['pdf']),
-('py8tune', ['py8tune']),
+('tune', ['tune']),
 ('btaghf', ['btaghf']),
 ('btaglf', ['btaglf']),
 ('btaghfstats1', ['btaghfstats1']),
@@ -61,10 +95,10 @@ unc_cat = OrderedDict([
           'btaghfstats2', 'btaglfstats2', 'btagcferr1', 'btagcferr2']),
 ])
 
-#FIXME don't forget this
-#if year == "2017":
-#  unc_cat['prefire'] = ['prefire']
-#  unc_cat['all'].append('prefire')
+if year == "2018":
+  unc_cat['jesHEM'] = ['jesHEM']
+  unc_cat['jesAll'].append('jesHEM')
+  unc_cat['all'].append('jesHEM')
 
 #Create syst yaml everytime, to avoid crash due to different treatments
 with open(config_path + "config_" + year + ".yml") as f:
@@ -118,7 +152,7 @@ for key, value in unc_cat.items():
     with open(os.path.join(dest_path, 'figure_' + year, 'systematics.tex'), 'r') as f:
         with open(os.path.join(dest_path, 'figure_' + year, 'systematics_' + syst_postfix + '.tex'), 'w+') as f1:
             isTTsyst = False
-            if key in ['scale', 'ps', 'hdamp', 'py8tune', 'pdf']: isTTsyst = True
+            if key in ['scale', 'ps', 'hdamp', 'tune', 'pdf']: isTTsyst = True
             for line in f:
                 isTT = False
                 if 'ttbar' in line or 'LFV' in line: isTT = True
@@ -129,13 +163,12 @@ for key, value in unc_cat.items():
     string_to_add = 'systematics:\n'
 
 unc_summary = OrderedDict([
-('xsec', 'Cross section'), ('pu', 'Pileup'), ('muon', 'Muon SF'), ('tauid', 'Tau ID'), ('tes', 'TES'),
+('xsec', 'Cross section'), ('pu', 'Pileup'), ('prefire', 'Prefire Reweight'), ('muon', 'Muon SF'),
+('tauid', 'Tau ID'), ('tes', 'TES'),
 ('jesAll', 'JES'), ('jer', 'JER'),
-('scale', 'ME scale'), ('ps', 'PS scale'), ('hdamp', 'ME-PS matching'), ('pdf', 'PDF'), ('py8tune', 'Underlying event'),
+('scale', 'ME scale'), ('ps', 'PS scale'), ('hdamp', 'ME-PS matching'), ('pdf', 'PDF'), ('tune', 'Underlying event'),
 ('bAll', 'b-tagging shape'), ('all', 'Total sys. unc.'),
 ])
-
-#if year == "2017": unc_summary['prefire'] = 'Prefire Reweight'
 
 print("Generating summary table...")
 #Gather all results into one summary table
@@ -144,7 +177,7 @@ with open("total_syst_template.tex") as f:
     with open(os.path.join(dest_path, 'figure_' + year, 'total_syst.tex'), "w") as f1:
         for line in lines:
             #if year != '2017' and 'Prefire' in line: continue
-            if 'Prefire' in line: continue
+            #if 'Prefire' in line: continue
             for key, value in unc_summary.items():
                 if value in line:
                     with open(os.path.join(dest_path, 'figure_' + year, 'systematics_' + key + '.tex'),'r') as f2:

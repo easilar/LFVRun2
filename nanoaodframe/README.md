@@ -52,6 +52,11 @@ The class has several methods:
   Look at `nanoaoddataframe.cpp` to find how to use within C++.
 
 - Compile
+  Make sure to source proper evnv (new!)
+  ``` bash
+    source /cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/setup.sh
+  ```
+  Then compile
   ``` bash
     make clean && make -j 4   # max 6 effective.
     ```
@@ -93,6 +98,16 @@ python scripts/skim.py -V skim_test -F mc -Y 2018
 # To run specific datasets, add them in test_list of skim.py
 # This script uses slurm on htop.
 # Please specify which node to EXCLUDE from the batch job, in scripts/job_slurm_skim.sh
+
+#To resubmit knowing that `folder_filename.log`
+find log/201*/*/* | xargs grep runtime_error
+find log/201*/*/* | xargs grep fault
+find log/201*/*/* | xargs grep Traceback
+find log/201*/*/* | xargs grep ERROR
+find log/201*/*/* | xargs grep error
+
+#Do this ONLY for systematic root file, unless will submit all variations in addition to nominal one
+python scripts/skim.py -V skim_test -Y 2018 --dry | grep 270000_221AB515 | sh
 ```
 
 #### Processing
@@ -113,6 +128,11 @@ In some cases, you may want to submit single file per core using slurm.
 `scripts/process.py` will do the job
 ``` txt
 Usage: python scripts/process.py -V skim_test -O test -Y 2018 -S theory (-F data/mc)
+
+For failing job detection:
+find log/* | xargs grep runtime_error
+find log/* | xargs grep fault
+find log/* | xargs grep Traceback
 ```
 Now, apply b SF rescaling, compute uncertainty envelope, etc. Let the `test\2018` is the folder containing histograms.
 ``` txt
@@ -125,9 +145,9 @@ mkdir ../figure_2018
 ../../../plotIt/plotIt -o ../figure_2018/ ../../../plotIt/configs/config_18.yml -y -s
 
 #For Run2,
-python stack_signals.py -I test
+python stack_signals_v2.py -I test #use v2 for now, v1 cannot deal with year based uncertainties
 python plot_run2.py -I test
-python print_syst_table.py -O test4 -Y 2018
+python print_syst_table.py -I test4 -Y 2018
 ```
 
 ### Usage of scripts

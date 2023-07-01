@@ -7,13 +7,15 @@ ROOTLIBS   = $(shell root-config --noldflags --libs)
 
 CXXFLAGS = -g -Wall -fPIC --std=c++11 -O3
 LD       = $(CXX)
-LDDIR    = -L$(shell root-config --libdir) -Lexternal/lib -L$(BOOST_ROOT)/lib/
+#LDDIR    = -L$(shell root-config --libdir) -Lexternal/lib -L$(BOOST_ROOT)/lib/
+LDDIR    = -L$(shell root-config --libdir) -Lexternal/lib -L$(Boost_LIBRARYDIR)
 LDFLAGS  = -fPIC $(shell root-config --ldflags) $(LDDIR)
 SOFLAGS  =
 AR       = ar
 ARFLAGS  = -cq
 
-CXXFLAGS    += $(ROOTCFLAGS) $(INCLUDES) -Iinclude/ -Iexternal/include/ -I$(shell echo $(BOOST_ROOT))/include
+#CXXFLAGS    += $(ROOTCFLAGS) $(INCLUDES) -Iinclude/ -Iexternal/include/ -I$(shell echo $(BOOST_ROOT))/include
+CXXFLAGS    += $(ROOTCFLAGS) $(INCLUDES) -Iinclude/ -Iexternal/include/ -I$(shell echo $(BOOST_ROOT))
 LIBS        = $(ROOTLIBS) -lboost_filesystem -lboost_regex -lboost_system
 STATIC_LIBS = -lyaml-cpp
 GLIBS       = $(ROOTGLIBS)

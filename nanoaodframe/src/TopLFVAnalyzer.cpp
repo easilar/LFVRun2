@@ -17,6 +17,14 @@ TopLFVAnalyzer::TopLFVAnalyzer(TTree *t, std::string outfilename, std::string ye
         ext_syst = true;
     }
     _syst = syst;
+
+    if (_year == "2016pre") {
+        tauYear = "UL2016_preVFP";
+    } else if (_year == "2016post") {
+        tauYear = "UL2016_postVFP";
+    } else {
+        tauYear = "UL" + _year;
+    }
 }
 
 // Define your cuts here
@@ -40,6 +48,10 @@ void TopLFVAnalyzer::defineMoreVars() {
     defineVar("mutau_dPhi",::calculate_deltaPhi,{"muonvec","tauvec"});
     defineVar("mutau_dR",::calculate_deltaR,{"muonvec","tauvec"});
     defineVar("muMET_mt",::calculate_MT,{"muon4vecs","MET_pt","MET_phi"});
+
+    defineVar("muonWeightIdExt", ::addMuonUnc, {"muonWeightId"});
+    defineVar("muonWeightIsoExt", ::addMuonUnc, {"muonWeightIso"});
+    defineVar("muonWeightTrgExt", ::addMuonUnc, {"muonWeightTrg"});
 
     // Already object selection is done before this
     // There should be 'good' tau (or none) and exactly one muon
@@ -95,7 +107,7 @@ void TopLFVAnalyzer::defineMoreVars() {
     // EventWeights
     // Calculate product of weights and store for systematic study
     // External systs: JES (+btag) (14), JER(2), TES(2), hdamp(2), TuneCP5(2)
-    // Weights systs: genWeight(1), PU(2), btag(16), muon Id(2)/Iso(2)/Trg(2), tauId(2*2*2), ME scale(6), PS scale(4), PDF(102)
+    // Weights systs: genWeight(1), PU(2), btag(16), muon Id(2)/Iso(2)/Trg(2), tauId(18+2*2), ME scale(6), PS scale(4), PDF(102, or 2)
     // Not implemented: EEprefire, top pt reweighting,
     // eventWeight_xx : xxweight
     // eventWeight__xx: xx unc.
@@ -104,14 +116,15 @@ void TopLFVAnalyzer::defineMoreVars() {
         addVar({"eventWeight", "1.0"});
         addVar({"eventWeight_notau", "1.0"});
     } else {
-        addVar({"eventWeight_genpu", "unitGenWeight * TopPtWeight * puWeight[0]"});
-        addVar({"eventWeight_mu", "muonWeightId[0] * muonWeightIso[0] * muonWeightTrg[0]"});
+        addVar({"eventWeight_genpu", "unitGenWeight * TopPtWeight * puWeight[0] * L1PreFiringWeight_Nom"});
+        addVar({"eventWeight_mu", "muonWeightIdExt[0] * muonWeightIsoExt[0] * muonWeightTrgExt[0]"});
         addVar({"eventWeight_tau", "tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
         addVar({"eventWeight_genpumu", "eventWeight_genpu * eventWeight_mu"});
         addVar({"eventWeight_notau_nobtag", "eventWeight_genpumu"}); //didn't want to duplicate entry...
         addVar({"eventWeight_genputau", "eventWeight_genpu * eventWeight_tau"});
         addVar({"eventWeight_nobtag", "eventWeight_genpu * eventWeight_mu * eventWeight_tau"});
-        addVar({"eventWeight_nopu", "unitGenWeight * TopPtWeight * eventWeight_mu * eventWeight_tau * btagWeight_DeepFlavB[0]"});
+        addVar({"eventWeight_nopu", "unitGenWeight * TopPtWeight * L1PreFiringWeight_Nom * eventWeight_mu * eventWeight_tau * btagWeight_DeepFlavB[0]"});
+        addVar({"eventWeight_noprefire", "unitGenWeight * TopPtWeight * puWeight[0] * eventWeight_mu * eventWeight_tau * btagWeight_DeepFlavB[0]"});
 
         if (_syst == "" or _syst == "nosyst" or ext_syst) {
             // for external syst, we only need nominal weight
@@ -157,6 +170,12 @@ void TopLFVAnalyzer::defineMoreVars() {
             } else if (_syst.find("jesRelativeSample_" + _year.substr(0,4) + "down") != std::string::npos) {
                 addVar({"eventWeight", "eventWeight_nobtag * btagWeight_DeepFlavB_jes[13]"});
                 addVar({"eventWeight_notau", "eventWeight_genpumu * btagWeight_DeepFlavB_jes[13]"});
+            } else if (_syst.find("jesHEMup") != std::string::npos && _year == "2018") { //HEM
+                addVar({"eventWeight", "eventWeight_nobtag * btagWeight_DeepFlavB[0]"});
+                addVar({"eventWeight_notau", "eventWeight_genpumu * btagWeight_DeepFlavB[0]"});
+            } else if (_syst.find("jesHEMdown") != std::string::npos && _year == "2018") { //HEM down - dummy
+                addVar({"eventWeight", "eventWeight_nobtag * btagWeight_DeepFlavB[0]"});
+                addVar({"eventWeight_notau", "eventWeight_genpumu * btagWeight_DeepFlavB[0]"});
             } else {
                 addVar({"eventWeight", "eventWeight_nobtag * btagWeight_DeepFlavB[0]"});
                 addVar({"eventWeight_notau", "eventWeight_genpumu * btagWeight_DeepFlavB[0]"});
@@ -164,20 +183,48 @@ void TopLFVAnalyzer::defineMoreVars() {
         } else {
             addVar({"eventWeight", "eventWeight_nobtag * btagWeight_DeepFlavB[0]"});
             addVar({"eventWeight_notau", "eventWeight_genpu * eventWeight_mu * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__puup", "unitGenWeight * TopPtWeight * puWeight[1] * eventWeight_mu * eventWeight_tau * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__pudown", "unitGenWeight * TopPtWeight * puWeight[2] * eventWeight_mu * eventWeight_tau * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__muidup", "eventWeight_genputau * muonWeightId[1] * muonWeightIso[0] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__muiddown", "eventWeight_genputau * muonWeightId[2] * muonWeightIso[0] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__muisoup", "eventWeight_genputau * muonWeightId[0] * muonWeightIso[1] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__muisodown", "eventWeight_genputau * muonWeightId[0] * muonWeightIso[2] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__mutrgup", "eventWeight_genputau * muonWeightId[0] * muonWeightIso[0] * muonWeightTrg[1] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__mutrgdown", "eventWeight_genputau * muonWeightId[0] * muonWeightIso[0] * muonWeightTrg[2] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauidjetup", "eventWeight_genpumu * tauWeightIdVsJet[0][1] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauidjetdown", "eventWeight_genpumu * tauWeightIdVsJet[0][2] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauidelup", "eventWeight_genpumu * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][1] * tauWeightIdVsMu[0][0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauideldown", "eventWeight_genpumu * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][2] * tauWeightIdVsMu[0][0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauidmuup", "eventWeight_genpumu * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][1] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight__tauidmudown", "eventWeight_genpumu * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][2] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__puup", "eventWeight_nopu * puWeight[1]"});
+            addVar({"eventWeight__pudown", "eventWeight_nopu * puWeight[2]"});
+            addVar({"eventWeight__prefireup", "eventWeight_noprefire * L1PreFiringWeight_Up"});
+            addVar({"eventWeight__prefiredown", "eventWeight_noprefire * L1PreFiringWeight_Dn"});
+            addVar({"eventWeight__muidup", "eventWeight_genputau * muonWeightIdExt[1] * muonWeightIsoExt[0] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__muiddown", "eventWeight_genputau * muonWeightIdExt[2] * muonWeightIsoExt[0] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__muisoup", "eventWeight_genputau * muonWeightIdExt[0] * muonWeightIsoExt[1] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__muisodown", "eventWeight_genputau * muonWeightIdExt[0] * muonWeightIsoExt[2] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__mutrgup", "eventWeight_genputau * muonWeightIdExt[0] * muonWeightIsoExt[0] * muonWeightTrgExt[1] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight__mutrgdown", "eventWeight_genputau * muonWeightIdExt[0] * muonWeightIsoExt[0] * muonWeightTrgExt[2] * btagWeight_DeepFlavB[0]"});
+            //addVar({"eventWeight__tauidjetup", "eventWeight_notau * tauWeightIdVsJet[0][1] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            //addVar({"eventWeight__tauidjetdown", "eventWeight_notau * tauWeightIdVsJet[0][2] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetUncert0up", "eventWeight_notau * tauWeightIdVsJet[0][1] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetUncert0down", "eventWeight_notau * tauWeightIdVsJet[0][2] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetUncert1up", "eventWeight_notau * tauWeightIdVsJet[0][3] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetUncert1down", "eventWeight_notau * tauWeightIdVsJet[0][4] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystallerasup", "eventWeight_notau * tauWeightIdVsJet[0][5] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystallerasdown", "eventWeight_notau * tauWeightIdVsJet[0][6] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSyst"+tauYear+"up", "eventWeight_notau * tauWeightIdVsJet[0][7] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSyst"+tauYear+"down", "eventWeight_notau * tauWeightIdVsJet[0][8] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm0"+tauYear+"up", "eventWeight_notau * tauWeightIdVsJet[0][9] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm0"+tauYear+"down", "eventWeight_notau * tauWeightIdVsJet[0][10] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm1"+tauYear+"up", "eventWeight_notau * tauWeightIdVsJet[0][11] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm1"+tauYear+"down", "eventWeight_notau * tauWeightIdVsJet[0][12] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm10"+tauYear+"up", "eventWeight_notau * tauWeightIdVsJet[0][13] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm10"+tauYear+"down", "eventWeight_notau * tauWeightIdVsJet[0][14] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm11"+tauYear+"up", "eventWeight_notau * tauWeightIdVsJet[0][15] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetSystdm11"+tauYear+"down", "eventWeight_notau * tauWeightIdVsJet[0][16] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstatup", "eventWeight_notau * tauWeightIdVsJet[0][17] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstatdown", "eventWeight_notau * tauWeightIdVsJet[0][18] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstat_bin1up", "eventWeight_notau * tauWeightIdVsJet[0][19] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstat_bin1down", "eventWeight_notau * tauWeightIdVsJet[0][20] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstat_bin2up", "eventWeight_notau * tauWeightIdVsJet[0][21] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptstat_bin2down", "eventWeight_notau * tauWeightIdVsJet[0][22] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptsystup", "eventWeight_notau * tauWeightIdVsJet[0][23] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptsystdown", "eventWeight_notau * tauWeightIdVsJet[0][24] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptextrapup", "eventWeight_notau * tauWeightIdVsJet[0][25] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidjetHighptextrapdown", "eventWeight_notau * tauWeightIdVsJet[0][26] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidelup", "eventWeight_notau * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][1] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauideldown", "eventWeight_notau * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][2] * tauWeightIdVsMu[0][0]"});
+            addVar({"eventWeight__tauidmuup", "eventWeight_notau * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][1]"});
+            addVar({"eventWeight__tauidmudown", "eventWeight_notau * tauWeightIdVsJet[0][0] * tauWeightIdVsEl[0][0] * tauWeightIdVsMu[0][2]"});
             addVar({"eventWeight__btaghfup", "eventWeight_nobtag * btagWeight_DeepFlavB[1]"});
             addVar({"eventWeight__btaghfdown", "eventWeight_nobtag * btagWeight_DeepFlavB[2]"});
             addVar({"eventWeight__btaglfup", "eventWeight_nobtag * btagWeight_DeepFlavB[3]"});
@@ -196,15 +243,17 @@ void TopLFVAnalyzer::defineMoreVars() {
             addVar({"eventWeight__btagcferr2down", "eventWeight_nobtag * btagWeight_DeepFlavB[16]"});
 
             // no tau - nominal is eventWeight_notau
-            addVar({"eventWeight_notau_nopu", "unitGenWeight * TopPtWeight * eventWeight_mu * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__puup", "unitGenWeight * TopPtWeight * puWeight[1] * eventWeight_mu * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__pudown", "unitGenWeight * TopPtWeight * puWeight[2] * eventWeight_mu * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__muidup", "eventWeight_genpu * muonWeightId[1] * muonWeightIso[0] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__muiddown", "eventWeight_genpu * muonWeightId[2] * muonWeightIso[0] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__muisoup", "eventWeight_genpu * muonWeightId[0] * muonWeightIso[1] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__muisodown", "eventWeight_genpu * muonWeightId[0] * muonWeightIso[2] * muonWeightTrg[0] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__mutrgup", "eventWeight_genpu * muonWeightId[0] * muonWeightIso[0] * muonWeightTrg[1] * btagWeight_DeepFlavB[0]"});
-            addVar({"eventWeight_notau__mutrgdown", "eventWeight_genpu * muonWeightId[0] * muonWeightIso[0] * muonWeightTrg[2] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau_nopu", "unitGenWeight * TopPtWeight * L1PreFiringWeight_Nom * eventWeight_mu * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__puup", "unitGenWeight * TopPtWeight * puWeight[1] * L1PreFiringWeight_Nom * eventWeight_mu * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__pudown", "unitGenWeight * TopPtWeight * puWeight[2] * L1PreFiringWeight_Nom * eventWeight_mu * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__prefireup", "unitGenWeight * TopPtWeight * puWeight[0] * L1PreFiringWeight_Up * eventWeight_mu * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__prefiredown", "unitGenWeight * TopPtWeight * puWeight[0] * L1PreFiringWeight_Dn * eventWeight_mu * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__muidup", "eventWeight_genpu * muonWeightIdExt[1] * muonWeightIsoExt[0] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__muiddown", "eventWeight_genpu * muonWeightIdExt[2] * muonWeightIsoExt[0] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__muisoup", "eventWeight_genpu * muonWeightIdExt[0] * muonWeightIsoExt[1] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__muisodown", "eventWeight_genpu * muonWeightIdExt[0] * muonWeightIsoExt[2] * muonWeightTrgExt[0] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__mutrgup", "eventWeight_genpu * muonWeightIdExt[0] * muonWeightIsoExt[0] * muonWeightTrgExt[1] * btagWeight_DeepFlavB[0]"});
+            addVar({"eventWeight_notau__mutrgdown", "eventWeight_genpu * muonWeightIdExt[0] * muonWeightIsoExt[0] * muonWeightTrgExt[2] * btagWeight_DeepFlavB[0]"});
             addVar({"eventWeight_notau__btaghfup", "eventWeight_genpumu * btagWeight_DeepFlavB[1]"});
             addVar({"eventWeight_notau__btaghfdown", "eventWeight_genpumu * btagWeight_DeepFlavB[2]"});
             addVar({"eventWeight_notau__btaglfup", "eventWeight_genpumu * btagWeight_DeepFlavB[3]"});
@@ -254,6 +303,10 @@ void TopLFVAnalyzer::defineMoreVars() {
                     addVar({"eventWeight__pdf" + std::to_string(i), "eventWeight * LHEPdfWeight[" + std::to_string(i) + "]"});
                     addVar({"eventWeight_notau__pdf" + std::to_string(i), "eventWeight_notau * LHEPdfWeight[" + std::to_string(i) + "]"});
                 }
+                addVar({"eventWeight__pdfup", "eventWeight * LHEPdfWeight[102]"}); //approx.
+                addVar({"eventWeight__pdfdown", "eventWeight * LHEPdfWeight[101]"});
+                addVar({"eventWeight_notau__pdfup", "eventWeight_notau * LHEPdfWeight[102]"});
+                addVar({"eventWeight_notau__pdfdown", "eventWeight_notau * LHEPdfWeight[101]"});
             }
         }
     }
@@ -292,11 +345,28 @@ void TopLFVAnalyzer::bookHists() {
                    "__btaghfup", "__btaghfdown", "__btaglfup", "__btaglfdown",
                    "__btaghfstats1up", "__btaghfstats1down", "__btaghfstats2up", "__btaghfstats2down",
                    "__btaglfstats1up", "__btaglfstats1down", "__btaglfstats2up", "__btaglfstats2down",
-                   "__btagcferr1up", "__btagcferr1down", "__btagcferr2up", "__btagcferr2down"};
-    std::vector<std::string> sf_weight_tau = {"__tauidjetup", "__tauidjetdown", "__tauidelup", "__tauideldown", "__tauidmuup", "__tauidmudown"};
+                   "__btagcferr1up", "__btagcferr1down", "__btagcferr2up", "__btagcferr2down",
+                   "__prefireup", "__prefiredown"};
+
+    //std::vector<std::string> sf_weight_tau = {"__tauidjetup", "__tauidjetdown", "__tauidelup", "__tauideldown", "__tauidmuup", "__tauidmudown"};
+    std::vector<std::string> sf_weight_tau = {"__tauidjetUncert0up", "__tauidjetUncert0down",
+                                              "__tauidjetUncert1up", "__tauidjetUncert1down",
+                                              "__tauidjetSystallerasup", "__tauidjetSystallerasdown",
+                                              "__tauidjetSyst"+tauYear+"up", "__tauidjetSyst"+tauYear+"down",
+                                              "__tauidjetSystdm0"+tauYear+"up", "__tauidjetSystdm0"+tauYear+"down",
+                                              "__tauidjetSystdm1"+tauYear+"up", "__tauidjetSystdm1"+tauYear+"down",
+                                              "__tauidjetSystdm10"+tauYear+"up", "__tauidjetSystdm10"+tauYear+"down",
+                                              "__tauidjetSystdm11"+tauYear+"up", "__tauidjetSystdm11"+tauYear+"down",
+                                              "__tauidjetHighptstatup", "__tauidjetHighptstatdown",
+                                              "__tauidjetHighptstat_bin1up", "__tauidjetHighptstat_bin1down",
+                                              "__tauidjetHighptstat_bin2up", "__tauidjetHighptstat_bin2down",
+                                              "__tauidjetHighptsystup", "__tauidjetHighptsystdown",
+                                              "__tauidjetHighptextrapup", "__tauidjetHighptextrapdown",
+                                              "__tauidelup", "__tauideldown", "__tauidmuup", "__tauidmudown"};
 
     std::vector<std::string> theory_weight = {"__ps0", "__ps1", "__ps2", "__ps3",
-                   "__scale0", "__scale1", "__scale2", "__scale3", "__scale4", "__scale5"};//,
+                   "__scale0", "__scale1", "__scale2", "__scale3", "__scale4", "__scale5",
+                   "__pdfup", "__pdfdown"};//,
                    //"__pdf1", "__pdf2", "__pdf3", "__pdf4", "__pdf5",
                    //"__pdf6", "__pdf7", "__pdf8", "__pdf9", "__pdf10",
                    //"__pdf11", "__pdf12", "__pdf13", "__pdf14", "__pdf15",
@@ -391,7 +461,7 @@ void TopLFVAnalyzer::bookHists() {
         add1DHist({"h_tau1_pt", ";#tau_{h} p_{T} (GeV);Events", 20, 0, 400}, "Tau1_pt", "eventWeight", weightstr, "00", maxstep);
         add1DHist({"h_tau1_eta", ";#tau_{h} #eta;Events", 20, -2.3, 2.3}, "Tau1_eta", "eventWeight", weightstr, "00", maxstep);
         add1DHist({"h_tau1_mass", ";m_{#tau_{h}} (GeV);Events", 20, 0, 100}, "Tau1_mass", "eventWeight", weightstr, "00", maxstep);
-        add1DHist({"h_tau1_decayMode", ";decaymode_{#tau_{h}} (GeV);Events", 15, 0, 15}, "Tau1_decayMode", "eventWeight", weightstr, "00", maxstep);
+        add1DHist({"h_tau1_decayMode", ";Decaymode of #tau_{h};Events", 15, 0, 15}, "Tau1_decayMode", "eventWeight", weightstr, "00", maxstep);
 
         add1DHist({"h_mutau_dEta", ";#Delta#eta(#mu, #tau_{h});Events", 25, -5, 5}, "mutau_dEta", "eventWeight", weightstr, "00", maxstep);
         add1DHist({"h_mutau_dPhi", ";#Delta#phi(#mu, #tau_{h});Events", 20, -3.2, 3.2}, "mutau_dPhi", "eventWeight", weightstr, "00", maxstep);

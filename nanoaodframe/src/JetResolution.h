@@ -6,7 +6,7 @@
 // In standalone mode, no reference to CMSSW exists, so the only way to retrieve resolutions and scale factors are from text files.
 
 #include "JetResolutionObject.h"
-
+#include <stdexcept>
 
 namespace JME {
   class JetResolution {

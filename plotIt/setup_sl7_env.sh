@@ -1,11 +1,5 @@
 #/usr/bin/bash
-echo "You don't need to run this in htop!"
-#export BOOST_ROOT=/cvmfs/cms.cern.ch/slc7_amd64_gcc820/external/boost/1.72.0
-#export ROOTSYS=/cvmfs/cms.cern.ch/slc7_amd64_gcc820/cms/cmssw/CMSSW_11_2_0_pre1/external/slc7_amd64_gcc820/
-
-#source /cvmfs/cms.cern.ch/slc7_amd64_gcc820/external/gcc/8.2.0/etc/profile.d/init.sh
-#source $ROOTSYS/bin/thisroot.sh
-#source $BOOST_ROOT/etc/profile.d/init.sh
-
-#export PATH=$ROOTSYS/bin:$PATH
-#export LD_Library_PATH=$ROOTSYS/lib:$LD_LIBRARY_PATH
+#With lcg; source /cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/setup.sh
+export BOOST_ROOT=/cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/include/boost
+export Boost_LIBRARYDIR=/cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/lib
+export LD_LIBRARY_PATH=/cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/lib:$LD_LIBRARY_PATH

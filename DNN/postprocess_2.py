@@ -16,9 +16,7 @@ discriminator = args.discriminator
 alpha = args.alpha
 #labels = ['rerun_multi_Multiaug22','rerun_staug22', 'rerun_ttaug22']
 # Set Runs
-#years = ['2016pre', '2016post', '2017','2018']
-years = ['2018']
-#years = ['2016post']#, '2017','2018']
+years = ['2016pre', '2016post', '2017','2018']
 
 # Set output folders
 for year in years:
@@ -27,10 +25,17 @@ for year in years:
 	    os.makedirs(base_path + label + '/' + year + '_postprocess_2/' + discriminator + '/' + alpha + '/')
 
 # Systematic Sources => All systematics in one file.
+systs_toTTTfile = ['tunedown','tuneup','hdampdown','hdampup']
+systs_tofile = ['jerdown', 'jerup', 'jesAbsolute_yeardown', 'jesAbsolute_yearup', 'jesAbsolutedown', 'jesAbsoluteup', 'jesBBEC1_yeardown', 'jesBBEC1_yearup', 'jesBBEC1down', 'jesBBEC1up', 'jesFlavorQCDdown', 'jesFlavorQCDup', 'jesRelativeBaldown', 'jesRelativeBalup', 'jesRelativeSample_yeardown', 'jesRelativeSample_yearup', 'jesHEMdown','jesHEMup' , 'tesdown', 'tesup']+systs_toTTTfile
 
-systs_tofile = ['jerdown', 'jerup', 'jesAbsolute_yeardown', 'jesAbsolute_yearup', 'jesAbsolutedown', 'jesAbsoluteup', 'jesBBEC1_yeardown', 'jesBBEC1_yearup', 'jesBBEC1down', 'jesBBEC1up', 'jesFlavorQCDdown', 'jesFlavorQCDup', 'jesRelativeBaldown', 'jesRelativeBalup', 'jesRelativeSample_yeardown', 'jesRelativeSample_yearup', 'tesdown', 'tesup']
-systs_toweight = ['btagcferr1down', 'btagcferr1up', 'btagcferr2down', 'btagcferr2up', 'btaghfdown', 'btaghfstats1down', 'btaghfstats1up', 'btaghfstats2down', 'btaghfstats2up', 'btaghfup', 'btaglfdown', 'btaglfstats1down', 'btaglfstats1up', 'btaglfstats2down', 'btaglfstats2up', 'btaglfup', 'muiddown', 'muidup', 'muisodown', 'muisoup', 'mutrgdown', 'mutrgup', 'pudown', 'puup', 'tauideldown', 'tauidelup', 'tauidjetdown', 'tauidjetup', 'tauidmudown', 'tauidmuup']
-systs = systs_tofile+systs_toweight+['']
+systs_pdf = ['pdfEnvup','pdfEnvdown','pdfup','pdfdown']
+syst_otherTheory = ['psup','psdown','scaleup','scaledown']
+syst_tauidjets = ['tauidjetHighptextrapdown', 'tauidjetHighptextrapup', 'tauidjetHighptstat_bin1down', 'tauidjetHighptstat_bin1up', 'tauidjetHighptstat_bin2down', 'tauidjetHighptstat_bin2up', 'tauidjetHighptstatdown', 'tauidjetHighptstatup', 'tauidjetHighptsystdown', 'tauidjetHighptsystup', 'tauidjetSystULyeardown', 'tauidjetSystULyearup', 'tauidjetSystallerasdown', 'tauidjetSystallerasup', 'tauidjetSystdm0ULyeardown', 'tauidjetSystdm0ULyearup', 'tauidjetSystdm10ULyeardown', 'tauidjetSystdm10ULyearup', 'tauidjetSystdm11ULyeardown', 'tauidjetSystdm11ULyearup', 'tauidjetSystdm1ULyeardown', 'tauidjetSystdm1ULyearup', 'tauidjetUncert0down', 'tauidjetUncert0up', 'tauidjetUncert1down', 'tauidjetUncert1up']
+systs_toweight = ['btagcferr1down', 'btagcferr1up', 'btagcferr2down', 'btagcferr2up', 'btaghfdown', 'btaghfstats1down', 'btaghfstats1up', 'btaghfstats2down', 'btaghfstats2up', 'btaghfup', 'btaglfdown', 'btaglfstats1down', 'btaglfstats1up', 'btaglfstats2down', 'btaglfstats2up', 'btaglfup', 'muiddown', 'muidup', 'muisodown', 'muisoup', 'mutrgdown', 'mutrgup', 'prefiredown','prefireup', 'pudown', 'puup', 'tauideldown', 'tauidelup', 'tauidmudown', 'tauidmuup']+systs_pdf+syst_otherTheory
+
+
+
+systs = systs_tofile+systs_toweight+syst_tauidjets+['']
 
 # Produce dictionary for file lists.
 
@@ -56,6 +61,7 @@ def collect_systhists(outfile, fname, hlists, syst, syst_, year):
     else: tmpf = TFile.Open(os.path.join(base_path + label, year+"_postprocess",discriminator , alpha , fname + '.root'), 'READ')
     for histname in hlists:
         if syst != '' and 'counter' in histname: continue
+        if not "18" in year and "HEM" in syst: continue
         tmpf.cd()
         tmphist = tmpf.Get(histname)
         if syst == '': newtmphist = tmphist.Clone(histname)
@@ -82,10 +88,13 @@ for year in years:
         outfile = TFile.Open(os.path.join(out_path, outfname + '.root'), 'RECREATE')
         # Looping over all systematics.
         #for syst, syst_ in systs.items():
+
         for syst in systs:
             if "year" in syst:
               syst = syst.replace('year', year[:4])
             syst_ = syst
+            if '16pre' in year and syst in syst_tauidjets: syst_ = syst_.replace('2016', '2016_preVFP')
+            if '16post' in year and syst in syst_tauidjets: syst_ = syst_.replace('2016', '2016_postVFP')
             collect_systhists(outfile, fname, hlists, syst, syst_, year)
         infile.Close()
         outfile.Close()

@@ -15,9 +15,10 @@ chs = ['ST_LFV_TCMuTau_Scalar', 'ST_LFV_TCMuTau_Tensor', 'ST_LFV_TCMuTau_Vector'
          'TT_LFV_TToUMuTau_Scalar', 'TT_LFV_TToUMuTau_Tensor', 'TT_LFV_TToUMuTau_Vector']
 
 for year in ["16pre_postprocess" ,"16post_postprocess" ,"17_postprocess" ,"18_postprocess"] :
-	for ch in chs:
-		infilett = dir_path_st +"/"+year +"/" + "hist_"+ ch  +"_tt.root"
-		infilest = dir_path_st +"/"+year +"/" + "hist_"+ ch  +"_st.root"
-		outfile  = dir_path_st +"/"+year +"/" + "hist_"+ ch  +".root"
-		print(['hadd','-f', outfile] + [infilest] + [infilett])
-		subprocess.run(['hadd','-f', outfile] + [infilest] + [infilett])
+	for disc in ["p_st","p_tt","p_bkg","p_st_tt", "p_max", "p_mean", "p_min"]:
+		for ch in chs:
+			infilett = dir_path_st +"/"+year + "/" + disc +"/"+"hist_"+ ch  +"_tt.root"
+			infilest = dir_path_st +"/"+year + "/" + disc +"/"+"hist_"+ ch  +"_st.root"
+			outfile  = dir_path_st +"/"+year + "/" + disc +"/"+"hist_"+ ch  +".root"
+			print(['hadd','-f', outfile] + [infilest] + [infilett])
+			subprocess.run(['hadd','-f', outfile] + [infilest] + [infilett])

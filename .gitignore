@@ -11,6 +11,20 @@ rootdict.C
 */topPtReweight/*pdf
 
 
+#temporary files that are generated when running codes
+syst_all_*.yml
+*_forSyst.yml
+config_Run2.yml
+files_Run2.yml
+
+#plotit
+plotIt/external/include
+plotIt/external/lib
+plotIt/external/share
+plotIt/external/tclap-1.2.1
+plotIt/external/yaml-cpp-yaml-cpp-0.6.2
+plotIt/plotIt
+
 # Compiled Object files
 *.slo
 *.lo

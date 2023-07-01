@@ -23,6 +23,15 @@ TH1* extractTH1(const TFile* file, const std::string& histname){
   return hist;
 }
 
+TGraph* extractTGraph(const TFile* file, const std::string& graphname){
+  TGraph* graph = dynamic_cast<TGraph*>((const_cast<TFile*>(file))->Get(graphname.data()));
+  if(!graph){
+    std::cerr << std::endl << "ERROR! Failed to load graph = '" << graphname << "' from input file!" << std::endl;
+    assert(0);
+  }
+  return graph;
+}
+
 const TF1* extractTF1(const TFile* file, const std::string& funcname){
   const TF1* function = dynamic_cast<TF1*>((const_cast<TFile*>(file))->Get(funcname.data()));
   if(!function){
@@ -32,7 +41,31 @@ const TF1* extractTF1(const TFile* file, const std::string& funcname){
   return function;
 }
 
-
+std::map<std::string, const TF1*> extractTF1DMandPT(const TFile* file, const std::string& funcname, const std::vector<std::string>& uncerts = {}) {
+    const TF1* func = dynamic_cast<TF1*>((const_cast<TFile*>(file))->Get(funcname.data()));
+    std::map<std::string, const TF1*> funcs;
+    funcs["nom"] = func;
+    if (uncerts.size() > 0) {
+        for (const auto& u : uncerts) {
+            for (const auto& x : {"up", "down"}) {
+                std::string syst_funcname;
+                if (u.find("syst") != std::string::npos) {
+                    syst_funcname = funcname;
+                    syst_funcname.replace(syst_funcname.find("fit"), 3, u + "_" + x + "_fit");
+                } else {
+                    syst_funcname = funcname + "_";
+                    syst_funcname += u + "_" + x;
+                }
+                funcs[u + "_" + x] = dynamic_cast<TF1*>((const_cast<TFile*>(file))->Get(syst_funcname.data()));
+            }
+        }
+    }
+    if (!func) {
+        std::cerr << std::endl << "ERROR! Failed to load function = '" << funcname << "' from input file!" << std::endl;
+        assert(0);
+    }
+    return funcs;
+}
 
 void TauIDSFTool::disabled() const {
   std::cerr << std::endl << "ERROR! Method has been disabled! isVsPT = "<<isVsPT<<", isVsDM = "
@@ -41,7 +74,7 @@ void TauIDSFTool::disabled() const {
 }
 
 
-TauIDSFTool::TauIDSFTool(const std::string& year, const std::string& id, const std::string& wp, const bool dm, const bool embedding): ID(id), WP(wp){
+TauIDSFTool::TauIDSFTool(const std::string& year, const std::string& id, const std::string& wp, const std::string& wp_vsele,  const bool dm, const bool ptdm, const bool embedding, const bool highpT): ID(id), WP(wp), WP_VSELE(wp_vsele){
 
   bool verbose = false;
   //std::string datapath                = Form("%s/src/TauPOG/TauIDSFs/data",getenv("CMSSW_BASE"));
@@ -72,7 +105,101 @@ TauIDSFTool::TauIDSFTool(const std::string& year, const std::string& id, const s
   }
 
   if(std::find(antiJetIDs.begin(),antiJetIDs.end(),ID)!=antiJetIDs.end()){
-    if(dm){
+
+    if (highpT) {
+      std::vector<std::string> allowed_wp={"Loose","Medium","Tight","VTight"};
+      std::vector<std::string> allowed_wp_vsele={"VVLoose","Tight"};
+      if (ID != "DeepTau2017v2p1VSjet") {
+        std::cerr << "Scale factors not available for ID '"+ID+"'!" << std::endl;
+        assert(0);
+      }
+      if (std::find(allowed_wp.begin(), allowed_wp.end(), wp) == allowed_wp.end() ||
+      std::find(allowed_wp_vsele.begin(), allowed_wp_vsele.end(), wp_vsele) == allowed_wp_vsele.end()) {
+      std::ostringstream msg;
+      msg << "Scale factors not available for this combination of WPs! Allowed WPs for VSjet are [";
+      for (const auto& x : allowed_wp) {
+      msg << x << ", ";
+      }
+      msg << "]. Allowed WPs for VSele are [";
+      for (const auto& x : allowed_wp_vsele) {
+      msg << x << ", ";
+      }
+      msg << "]";
+      std::cerr << msg.str() << std::endl;
+      assert(0);
+      }
+      if (embedding) {
+        std::cerr << "Scale factors for embedded samples not available in this format! Use either pT-binned or DM-binned SFs." << std::endl;
+        assert(0);
+      }
+      TString filename = Form("%s/TauID_SF_Highpt_%s_VSjet%s_VSele%s_Mar07.root",datapath.data(),ID.data(),WP.data(),WP_VSELE.data());
+      TFile* file = ensureTFile(filename, verbose);
+      std::string year_ = year;
+      if (year.find("UL") == 0) {
+      year_ = year_.substr(2);
+      }
+      graph[""]     = extractTGraph(file,Form("DMinclusive_%s",year_.data()));
+      graph["syst_alleras"]   = extractTGraph(file,Form("DMinclusive_%s_syst_alleras",year_.data())); 
+      graph["syst_oneera"]   = extractTGraph(file,Form("DMinclusive_%s_syst_%s",year_.data(),year_.data()));
+      file->Close();
+      TString fname_extrap = Form("%s/TauID_SF_HighptExtrap_%s_Mar07.root",datapath.data(),ID.data());
+      TFile* file_extrap = ensureTFile(fname_extrap, verbose);
+      func["syst_extrap"] = extractTF1(file_extrap,Form("uncert_func_%sVSjet_%sVSe",WP.data(),WP_VSELE.data()));
+      file_extrap->Close();
+
+      isHighPTVsPT = true;
+
+    }
+    else if (ptdm) {
+      DMs    = {0,1,10};
+      if (ID.find("oldDM") == std::string::npos)
+      {
+          DMs.push_back(11);
+      }
+      std::vector<std::string> allowed_wp={"Loose","Medium","Tight","VTight"};
+      std::vector<std::string> allowed_wp_vsele={"VVLoose","Tight"};
+      if (ID != "DeepTau2017v2p1VSjet") {
+        std::cerr << "Scale factors not available for ID '"+ID+"'!" << std::endl;
+        assert(0);
+      }
+      if (std::find(allowed_wp.begin(), allowed_wp.end(), wp) == allowed_wp.end() ||
+      std::find(allowed_wp_vsele.begin(), allowed_wp_vsele.end(), wp_vsele) == allowed_wp_vsele.end()) {
+      std::ostringstream msg;
+      msg << "Scale factors not available for this combination of WPs! Allowed WPs for VSjet are [";
+      for (const auto& x : allowed_wp) {
+      msg << x << ", ";
+      }
+      msg << "]. Allowed WPs for VSele are [";
+      for (const auto& x : allowed_wp_vsele) {
+      msg << x << ", ";
+      }
+      msg << "]";
+      std::cerr << msg.str() << std::endl;
+      assert(0);
+      }
+      if (embedding) {
+        std::cerr << "Scale factors for embedded samples not available in this format! Use either pT-binned or DM-binned SFs." << std::endl;
+        assert(0);
+      }
+      TString filename = Form("%s/TauID_SF_dm_%s_VSjet%s_VSele%s_Mar07.root",datapath.data(),ID.data(),WP.data(),WP_VSELE.data());
+      TFile* file = ensureTFile(filename, verbose);
+      std::string year_ = year;
+      if (year.find("UL") == 0) {
+      year_ = year_.substr(2);
+      }
+
+      std::vector<std::string> uncerts_dm0={"uncert0","uncert1","syst_alleras","syst_"+year_,"syst_dm0_"+year_};
+      std::vector<std::string> uncerts_dm1={"uncert0","uncert1","syst_alleras","syst_"+year_,"syst_dm1_"+year_};
+      std::vector<std::string> uncerts_dm10={"uncert0","uncert1","syst_alleras","syst_"+year_,"syst_dm10_"+year_};
+      std::vector<std::string> uncerts_dm11={"uncert0","uncert1","syst_alleras","syst_"+year_,"syst_dm11_"+year_};
+      funcs_dm0 = extractTF1DMandPT(file,"DM0_"+year_+"_fit", uncerts_dm0);
+      funcs_dm1 = extractTF1DMandPT(file,"DM1_"+year_+"_fit", uncerts_dm1);
+      funcs_dm10 = extractTF1DMandPT(file,"DM10_"+year_+"_fit", uncerts_dm10);
+      funcs_dm11 = extractTF1DMandPT(file,"DM11_"+year_+"_fit", uncerts_dm11);
+
+      isVsDMandPT = true;
+
+    } else if(dm){
       TString filename;
       if (embedding) {
           if (ID.find("oldDM") != std::string::npos)
@@ -164,7 +291,70 @@ float TauIDSFTool::getSFvsPT(double pt, const std::string& unc){
   return getSFvsPT(pt,5,unc);
 }
 
+float TauIDSFTool::getHighPTSFvsPT(double pt, int genmatch, const std::string& unc){
+  if(!isHighPTVsPT) disabled();
+  if(genmatch==5){
+    //x=ROOT.Double();
+    //y=ROOT.Double();
+    Double_t x=0., y=0.;
+    // we only measured for 2 pT bins 100-200 and > 200 so return 1 of 2 values depending on whether pt is less than 200 or not
+    int bin = 0;
+    if (pt>=200) bin=1;
+    graph[""]->GetPoint(bin, x,y);
+    float SF = y;
 
+    if (unc.find("stat_bin1") != std::string::npos && pt < 200) {
+        // we define the stat error as the statistical error summed in quadrature with the systematic error that is uncorrelated by era
+        // in principle these could be taken as seperate uncertainties but the effect of correlating the systematic part by pT bin will be negligible overall
+        if (unc.find("up") != std::string::npos) {
+            SF += sqrt(pow(this->graph[""]->GetErrorY(0), 2) + pow(this->graph["syst_oneera"]->GetErrorY(0), 2));
+        }
+        if (unc.find("down") != std::string::npos) {
+            SF -= sqrt(pow(this->graph[""]->GetErrorY(0), 2) + pow(this->graph["syst_oneera"]->GetErrorY(0), 2));
+        }
+    }
+    if (unc.find("stat_bin2") != std::string::npos && pt >= 200) {
+        // we define the stat error as the statistical error summed in quadrature with the systematic error that is uncorrelated by era
+        // in principle these could be taken as seperate uncertainties but the effect of correlating the systematic part by pT bin will be negligible overall
+        if (unc.find("up") != std::string::npos) {
+            SF += sqrt(pow(this->graph[""]->GetErrorY(1), 2) + pow(this->graph["syst_oneera"]->GetErrorY(1), 2));
+        }
+        if (unc.find("down") != std::string::npos) {
+            SF -= sqrt(pow(this->graph[""]->GetErrorY(1), 2) + pow(this->graph["syst_oneera"]->GetErrorY(1), 2));
+        }
+    }
+    if (unc.find("stat") != std::string::npos && unc.find("bin") == std::string::npos) {
+        // we define the stat error as the statistical error summed in quadrature with the systematic error that is uncorrelated by era
+        // in principle these could be taken as seperate uncertainties but the effect of correlating the systematic part by pT bin will be negligible overall
+        if (unc.find("up") != std::string::npos) {
+            SF += sqrt(pow(this->graph[""]->GetErrorY(bin), 2) + pow(this->graph["syst_oneera"]->GetErrorY(bin), 2));
+        }
+        if (unc.find("down") != std::string::npos) {
+            SF -= sqrt(pow(this->graph[""]->GetErrorY(bin), 2) + pow(this->graph["syst_oneera"]->GetErrorY(bin), 2));
+        }
+    }
+    if (unc.find("syst") != std::string::npos) {
+        if (unc.find("up") != std::string::npos) {
+            SF += this->graph["syst_alleras"]->GetErrorY(bin);
+        }
+        if (unc.find("down") != std::string::npos) {
+            SF -= this->graph["syst_alleras"]->GetErrorY(bin);
+        }
+    }
+    if (unc.find("extrap") != std::string::npos) {
+      if (unc.find("up") != std::string::npos) SF *= func["syst_extrap"]->Eval(pt);
+      if (unc.find("down") != std::string::npos) SF *= (2. - func["syst_extrap"]->Eval(pt));
+    }
+
+    return SF;
+  }
+  return 1.0;
+
+}
+
+float TauIDSFTool::getHighPTSFvsPT(double pt, const std::string& unc){
+  return getHighPTSFvsPT(pt,5,unc);
+}
 
 float TauIDSFTool::getSFvsDM(double pt, int dm, int genmatch, const std::string& unc) const{
   if(!isVsDM) disabled();
@@ -187,7 +377,36 @@ float TauIDSFTool::getSFvsDM(double pt, int dm, const std::string& unc) const{
   return getSFvsDM(pt,dm,5,unc);
 }
 
+float TauIDSFTool::getSFvsDMandPT(double pt, int dm, int genmatch, const std::string& unc) const{
+  if(!isVsDMandPT) disabled();
+  if(std::find(DMs.begin(),DMs.end(),dm)!=DMs.end()){
+    if(genmatch==5){
+      // get correct functions depending on DM
+      std::map<std::string, const TF1*> funcs = {};
+      if (dm==0) funcs = funcs_dm0;
+      if (dm>0&&dm<=2) funcs = funcs_dm1;
+      if (dm==10) funcs = funcs_dm10;
+      if (dm==11) funcs = funcs_dm11;
 
+
+      float SF;
+      if (unc.empty()) {
+          SF = funcs["nom"]->Eval(std::max(std::min(pt,140.0),20.0));
+      } else {
+          SF = funcs[unc]->Eval(std::max(std::min(pt,140.0),20.0));
+      }
+      return SF;
+    }
+    return 1.0;
+  }
+  else {
+      return 1.0;
+  }
+}
+
+float TauIDSFTool::getSFvsDMandPT(double pt, int dm, const std::string& unc) const{
+  return getSFvsDMandPT(pt,dm,5,unc);
+}
 
 float TauIDSFTool::getSFvsEta(double eta, int genmatch, const std::string& unc) const{
   if(!isVsEta) disabled();

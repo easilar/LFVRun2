@@ -25,7 +25,7 @@ files:
   include: ['files_2017.yml']
 
 systematics:
-  - tt_xsec: {type: const, value: 1.055, on: 'TTTo'}
+  - tt_xsec: {type: const, value: 1.044, on: 'TTTo'}
   - other_xsec1: {type: const, value: 1.1, on: 'DYJetsToLL'}
   - other_xsec2: {type: const, value: 1.1, on: 'ST_s'}
   - other_xsec3: {type: const, value: 1.1, on: 'ST_t'}
@@ -55,20 +55,33 @@ systematics:
   - btagcferr1
   - btagcferr2
   - pu
+  - prefire
   - muid
   - muiso
   - mutrg
-  - tauidjet
+  #- tauidjet
+  - tauidjetUncert0
+  - tauidjetUncert1
+  - tauidjetSystalleras
+  - tauidjetSystUL2017
+  - tauidjetSystdm0UL2017
+  - tauidjetSystdm1UL2017
+  - tauidjetSystdm10UL2017
+  - tauidjetSystdm11UL2017
+  - tauidjetHighptstat_bin1
+  - tauidjetHighptstat_bin2
+  - tauidjetHighptsyst
+  - tauidjetHighptextrap
   - tauidmu
   - tauidel
   - scale: {type: shape, on: 'TTTo'}
   - scale: {type: shape, on: 'LFV'}
   - ps: {type: shape, on: 'TTTo'}
   - ps: {type: shape, on: 'LFV'}
-#  - pdf: {type: shape, on: 'TTTo'}
+  - pdf: {type: shape, on: 'TTTo'}
 #  - pdf: {type: shape, on: 'LFV'}
-#  - hdamp: {type: shape, on: 'TTTo'}
-#  - py8tune: {type: shape, on: 'TTTo'}
+  - hdamp: {type: shape, on: 'TTTo'}
+  - tune: {type: shape, on: 'TTTo'}
 
 plots:
   include: ['histos_control.yml', 'histos_reco.yml', 'histos_yield.yml']

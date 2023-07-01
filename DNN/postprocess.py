@@ -53,7 +53,7 @@ def get_bSFratio(inputf, inputh):
     # rescale histogram by Sum(event weights before applying b weight)/Sum(weights with b weight)
     # This should be done per jet bin - nojet / 3jet
 
-    step = 'S5'
+    step = 'S4'
 
     posthist = inputf.Get('h_nevents_' + step)
     prehist = inputf.Get('h_nevents_' + step + '_nobtag')
@@ -66,7 +66,7 @@ def get_bSFratio(inputf, inputh):
 
 
 def write_envelope(inputh, inputf, syst, nhists, sumW, new_sumW):
-
+  print("inside Envelope")
   if (inputh + "__" + syst + "0")  in hlists:
     var_list = []
     for x in range(0,nhists):
@@ -129,6 +129,7 @@ for fname in file_list:
     infile = TFile.Open(os.path.join(nom_path+'/'+year+'/preds/'+discriminator+'/'+alpha +'/', fname + '.root'), 'READ')
     hlists = [ h.GetName() for h in infile.GetListOfKeys() if '_S' in h.GetName() or 'dnn' in h.GetName()]
     hlists.append("hcounter")
+    print("HLIST", hlists)
 
     # Get ratio for rescaling with b-tagSF.
     if not '__' in fname: bSFfile = infile
@@ -145,8 +146,10 @@ for fname in file_list:
     nominal_list = []
     isScale = False
     isPS = False
-    if any('__scale' in i for i in hlists): isScale = True
-    if any('__ps' in i for i in hlists): isPS = True
+    isPDF = False
+    #if ('__scale' in fname): isScale = True
+    #if ('__ps' in fname): isPS = True
+    #if ('__pdf' in fname): isPDF = True
 
     #print(isScale, isPS)
 
@@ -173,10 +176,10 @@ for fname in file_list:
     nominal_list = list(set(nominal_list))
 
     for hname2 in nominal_list:
-
+      print("HNAME2:" , hname2, isScale, isPS,isPDF)
       if isScale: write_envelope(hname2, bSFfile, "scale", 6, hcounter, hcounter)
       if isPS: write_envelope(hname2, bSFfile, "ps", 4, hcounter, hcounter)
-      #if isPDF:
+      if isPDF: write_envelope(hname2, bSFfile, "pdf", 103, hcounter, hcounter)
       #  if 'STTH' in files: write_envelope(hname2, hcounter, "pdf", 30, LHEPdfWeightSum)
       #  else:               write_envelope(hname2, hcounter, "pdf", 103, LHEPdfWeightSum)
       #if run_on_syst: rescale([], nom_EventInfo) #placeholder for hdamp and py8tune

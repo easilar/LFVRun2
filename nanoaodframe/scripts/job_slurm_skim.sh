@@ -20,8 +20,7 @@ outfile=$4
 workdir=$5
 logdir=$6
 
-source /opt/ohpc/pub/utils/conda/anaconda3/etc/profile.d/conda.sh
 cd $workdir
-conda activate py36
+source /cvmfs/sft.cern.ch/lcg/views/LCG_103/x86_64-centos7-gcc12-opt/setup.sh
 echo "python skimonefile.py -Y $year -I $infile -O ${outpath}/${outfile} 2>&1 | tee ${logdir}/${outfile%%root}log"
 python skimonefile.py -Y $year -I $infile -O ${outpath}/${outfile} 2>&1 | tee ${logdir}/${outfile%%root}log

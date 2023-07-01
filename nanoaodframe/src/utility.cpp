@@ -482,3 +482,11 @@ FourVector select_leadingvec( FourVectorVec &v ){
     else return vout;
 }
 
+//Considering only one muon!!!
+floats addMuonUnc( floats &input ) {
+    floats out;
+    out.emplace_back(input[0]);
+    out.emplace_back(input[0] + sqrt(pow(input[1] - input[0], 2) + pow(0.005, 2)));
+    out.emplace_back(input[0] - sqrt(pow(input[2] - input[0], 2) + pow(0.005, 2)));
+    return out;
+}

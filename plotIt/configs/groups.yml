@@ -3,7 +3,7 @@ GData:
   marker-size: 0.6
 
 Gttll:
-  fill-color: '#330000'
+  fill-color: '#ee4444'
   legend: 'TTLL'
 
 Gttlj:
@@ -11,7 +11,7 @@ Gttlj:
   legend: 'TTLJ'
 
 Gttjj:
-  fill-color: '#cc0000'
+  fill-color: '#330000'
   legend: 'TTHad'
 
 GttV:

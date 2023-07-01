@@ -16,23 +16,6 @@ input = args.input
 lumi_dict = {'2016pre': 19502, '2016post': 16812, '2017': 41480, '2018':59832}#16: 36314, run2:137625
 file_names = collections.OrderedDict()
 
-syst = ["","jesAbsoluteup","jesAbsolutedown", "jesAbsolute_ERAup", "jesAbsolute_ERAdown",
-        "jesBBEC1up", "jesBBEC1down", "jesBBEC1_ERAup", "jesBBEC1_ERAdown",
-        "jesFlavorQCDup", "jesFlavorQCDdown", "jesRelativeBalup", "jesRelativeBaldown",
-        "jesRelativeSample_ERAup", "jesRelativeSample_ERAdown",
-        "jerup", "jerdown", "tesup", "tesdown",
-        "hdampup", "hdampdown", "tuneup", "tunedown"]
-syst2 = []
-
-for sy in syst:
-    if 'ERA' in sy:
-        for key in lumi_dict.keys():
-            syst2.append('__' + sy.replace('ERA', key[:4]))
-    elif sy == "": syst2.append(sy)
-    else:          syst2.append('__' + sy)
-
-syst2 = list(set(syst2))
-
 if not os.path.exists(input + "/Run2"):
     try: os.makedirs(input + "/Run2")
     except: pass
@@ -75,7 +58,7 @@ if __name__ == '__main__':
         dir_path = os.path.join(input, era+'_postprocess')
         dirs = os.listdir(dir_path)
         print("POST process path: " , dir_path)
-        dirs[:] = [item.replace('.root', '_' + era + '.root') for item in dirs if any(i in item for i in ['LFV'])]
+        dirs[:] = [item.replace('.root', '_' + era + '.root') for item in dirs if any(i in item for i in ['LFV']) if '__' not in item]
         print("EDITED DIRS: " , dirs)
         file_names[dir_path] = dirs
 
@@ -90,6 +73,5 @@ if __name__ == '__main__':
            'TT_LFV_TUMuTau_Scalar', 'TT_LFV_TUMuTau_Tensor', 'TT_LFV_TUMuTau_Vector']
 
     for ch in chs:
-        for syst in syst2:
-            print(input + '/Run2/hist_' + ch + syst + '_201*.root')
-            check_call(['hadd','-f', input + '/Run2/hist_' + ch + syst + '.root'] +  glob.glob(input + '/Run2/hist_' + ch + syst + '_201*.root'))
+        print(input + '/Run2/hist_' + ch + '_201*.root')
+        check_call(['hadd','-f', input + '/Run2/hist_' + ch + '.root'] +  glob.glob(input + '/Run2/hist_' + ch + '_201*.root'))

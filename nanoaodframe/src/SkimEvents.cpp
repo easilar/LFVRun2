@@ -84,7 +84,6 @@ void SkimEvents::defineMoreVars()
         addVartoStore("Tau_d.*");
         addVartoStore("Tau_eta");
         addVartoStore("Tau_gen.*");
-        addVartoStore("Tau_idDecayModeNewDMs");
         addVartoStore("Tau_idDeepTau.*");
         addVartoStore("Tau_jetIdx");
         addVartoStore("Tau_mass");
